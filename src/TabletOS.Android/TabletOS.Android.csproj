@@ -12,4 +12,9 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
   </PropertyGroup>
+  <ItemGroup>
+    <AndroidNativeLibrary Include="JniLibs/arm64-v8a/libtabletos_core.so" />
+    <AndroidNativeLibrary Include="JniLibs/armeabi-v7a/libtabletos_core.so" />
+    <AndroidNativeLibrary Include="JniLibs/x86_64/libtabletos_core.so" />
+  </ItemGroup>
 </Project>
