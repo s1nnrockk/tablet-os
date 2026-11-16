@@ -26,6 +26,10 @@ public sealed class MainActivity : Activity
     private LinearLayout _dock = null!;
     private EditText _search = null!;
     private Button _setLauncherButton = null!;
+    private FrameLayout _root = null!;
+    private bool _returnAnimationPending;
+    private float _returnPivotX;
+    private float _returnPivotY;
     private readonly List<AppEntry> _apps = new();
 
     private sealed record AppEntry(string PackageName, string Label, Drawable Icon);
@@ -47,6 +51,8 @@ public sealed class MainActivity : Activity
     protected override void OnResume()
     {
         base.OnResume();
+        if (_returnAnimationPending && _root is not null)
+            PlayGenieReturnAnimation();
         if (_clock is not null)
             UpdateClock();
         if (_appGrid is not null)
@@ -164,13 +170,13 @@ public sealed class MainActivity : Activity
         page.AddView(footer, footerParams);
 
         scroll.AddView(page);
-        var root = new FrameLayout(this);
-        root.AddView(scroll, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MatchParent, ViewGroup.LayoutParams.MatchParent));
+        _root = new FrameLayout(this);
+        _root.AddView(scroll, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MatchParent, ViewGroup.LayoutParams.MatchParent));
         _dock = BuildDock();
         var dockParams = new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MatchParent, Dp(82), GravityFlags.Bottom | GravityFlags.CenterHorizontal);
         dockParams.SetMargins(Dp(22), 0, Dp(22), Dp(16));
-        root.AddView(_dock, dockParams);
-        SetContentView(root);
+        _root.AddView(_dock, dockParams);
+        SetContentView(_root);
         UpdateClock();
 
         dateTop.Text = DateTime.Now.ToString("dddd, d MMMM", CultureInfo.GetCultureInfo("ru-RU"));
@@ -333,25 +339,74 @@ public sealed class MainActivity : Activity
             var launch = PackageManager?.GetLaunchIntentForPackage(app.PackageName);
             if (launch is null) return;
 
-            if (source.Width > 0 && source.Height > 0)
+            // Remember the tapped icon. When the external app returns, the
+            // launcher expands back out from this exact point (Genie-style).
+            if (_root is not null && source.Width > 0 && source.Height > 0)
             {
-                var options = ActivityOptions.MakeScaleUpAnimation(
-                    source,
-                    0,
-                    0,
-                    source.Width,
-                    source.Height);
-                StartActivity(launch, options.ToBundle());
+                var sourceLocation = new int[2];
+                var rootLocation = new int[2];
+                source.GetLocationOnScreen(sourceLocation);
+                _root.GetLocationOnScreen(rootLocation);
+                _returnPivotX = Math.Clamp(
+                    sourceLocation[0] - rootLocation[0] + source.Width / 2f,
+                    0f,
+                    Math.Max(1, _root.Width));
+                _returnPivotY = Math.Clamp(
+                    sourceLocation[1] - rootLocation[1] + source.Height / 2f,
+                    0f,
+                    Math.Max(1, _root.Height));
             }
-            else
+
+            _returnAnimationPending = true;
+            try
             {
-                StartActivity(launch);
+                if (source.Width > 0 && source.Height > 0)
+                {
+                    var options = ActivityOptions.MakeScaleUpAnimation(
+                        source,
+                        0,
+                        0,
+                        source.Width,
+                        source.Height);
+                    StartActivity(launch, options.ToBundle());
+                }
+                else
+                {
+                    StartActivity(launch);
+                }
+            }
+            catch
+            {
+                _returnAnimationPending = false;
+                throw;
             }
         }
         catch (ActivityNotFoundException)
         {
             Toast.MakeText(this, "Не удалось открыть приложение", ToastLength.Short)?.Show();
         }
+    }
+
+    // Animate the home screen outward from the icon that launched the app.
+    // This is a lightweight Genie-inspired return transition rendered by Android.
+    private void PlayGenieReturnAnimation()
+    {
+        _returnAnimationPending = false;
+
+        _root.Animate()?.Cancel();
+        _root.PivotX = _returnPivotX > 0 ? _returnPivotX : _root.Width / 2f;
+        _root.PivotY = _returnPivotY > 0 ? _returnPivotY : _root.Height;
+        _root.ScaleX = 0.075f;
+        _root.ScaleY = 0.045f;
+        _root.Alpha = 0.72f;
+
+        _root.Animate()
+            ?.ScaleX(1f)
+            ?.ScaleY(1f)
+            ?.Alpha(1f)
+            ?.SetDuration(460)
+            ?.SetInterpolator(new Android.Views.Animations.DecelerateInterpolator(2.2f))
+            ?.Start();
     }
 
     private static bool NativeMatches(string query, string label)
