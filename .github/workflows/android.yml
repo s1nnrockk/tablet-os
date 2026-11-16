@@ -12,24 +12,29 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: 9.0.x
-
       - name: Setup Java
         uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: 17
-
+      - name: Setup Android SDK and NDK
+        uses: android-actions/setup-android@v3
+      - name: Install Android NDK
+        run: sdkmanager "ndk;27.2.12479018"
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+      - name: Install cargo-ndk
+        run: cargo install cargo-ndk --locked
+      - name: Build Rust native core
+        run: ANDROID_NDK_HOME="$ANDROID_SDK_ROOT/ndk/27.2.12479018" cargo ndk -t arm64-v8a -t armeabi-v7a -t x86_64 -o src/TabletOS.Android/JniLibs build --manifest-path native/tabletos-core/Cargo.toml --release
       - name: Install Android workload
         run: dotnet workload install android
-
       - name: Build APK
         run: dotnet publish src/TabletOS.Android/TabletOS.Android.csproj -c Release -f net9.0-android -p:AndroidPackageFormat=apk
-
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
