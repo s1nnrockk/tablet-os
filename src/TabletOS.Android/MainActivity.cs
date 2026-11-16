@@ -374,15 +374,20 @@ public sealed class MainActivity : Activity
         font.Click += (_, _) => ChooseLockClockFont();
         var color = MakePillButton("Цвет", "#55FFFFFF");
         color.Click += (_, _) => ChooseLockClockColor();
+        var size = MakePillButton("Размер", "#55FFFFFF");
+        size.Click += (_, _) => ChooseLockClockSize();
         customizeTop.AddView(wallpaper, new LinearLayout.LayoutParams(0, Dp(42), 1));
         customizeTop.AddView(depth, new LinearLayout.LayoutParams(0, Dp(42), 1));
         customizeTop.AddView(position, new LinearLayout.LayoutParams(0, Dp(42), 1));
         customizeBottom.AddView(style, new LinearLayout.LayoutParams(0, Dp(42), 1));
         customizeBottom.AddView(font, new LinearLayout.LayoutParams(0, Dp(42), 1));
         customizeBottom.AddView(color, new LinearLayout.LayoutParams(0, Dp(42), 1));
+        var customizeThird = new LinearLayout(this) { Orientation = Orientation.Horizontal, Gravity = GravityFlags.Center };
+        customizeThird.AddView(size, new LinearLayout.LayoutParams(0, Dp(42), 1));
         customize.AddView(customizeTop);
         customize.AddView(customizeBottom);
-        bottom.AddView(customize, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MatchParent, Dp(88)));
+        customize.AddView(customizeThird);
+        bottom.AddView(customize, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MatchParent, Dp(132)));
 
         var bottomParams = new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MatchParent, ViewGroup.LayoutParams.WrapContent, GravityFlags.Bottom);
         overlay.AddView(bottom, bottomParams);
@@ -499,6 +504,8 @@ public sealed class MainActivity : Activity
         var customColor = prefs?.GetString("lock_clock_custom_color", "#FFFFFFFF") ?? "#FFFFFFFF";
         var selectedColor = _lockClockColor == 8 ? customColor : colors[Math.Clamp(_lockClockColor, 0, colors.Length - 1)];
         clock.SetTextColor(Color.ParseColor(selectedColor));
+        clock.ScaleX = prefs?.GetFloat("lock_clock_scale_x", 1f) ?? 1f;
+        clock.ScaleY = prefs?.GetFloat("lock_clock_scale_y", 1f) ?? 1f;
         clock.SetShadowLayer(12f, 0f, 2f, Color.Argb(110, 0, 0, 0));
     }
 
@@ -529,6 +536,79 @@ public sealed class MainActivity : Activity
                 ApplyLockClockPreferences(_lockClock!);
             })
             .SetNegativeButton("Отмена", (_, _) => { })
+            .Show();
+    }
+
+    private void ChooseLockClockSize()
+    {
+        var prefs = GetSharedPreferences("tablet_os_settings", FileCreationMode.Private);
+        var originalX = prefs?.GetFloat("lock_clock_scale_x", 1f) ?? 1f;
+        var originalY = prefs?.GetFloat("lock_clock_scale_y", 1f) ?? 1f;
+
+        var panel = new LinearLayout(this) { Orientation = Orientation.Vertical };
+        panel.SetPadding(Dp(22), Dp(12), Dp(22), Dp(8));
+
+        var widthLabel = MakeText($"Ширина: {Math.Round(originalX * 100)}%", 14, "#526579", true);
+        panel.AddView(widthLabel);
+        var widthSlider = new SeekBar(this)
+        {
+            Max = 150,
+            Progress = Math.Clamp((int)Math.Round(originalX * 100), 50, 150)
+        };
+        panel.AddView(widthSlider, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MatchParent, Dp(48)));
+
+        var heightLabel = MakeText($"Высота: {Math.Round(originalY * 100)}%", 14, "#526579", true);
+        heightLabel.SetPadding(0, Dp(12), 0, 0);
+        panel.AddView(heightLabel);
+        var heightSlider = new SeekBar(this)
+        {
+            Max = 150,
+            Progress = Math.Clamp((int)Math.Round(originalY * 100), 50, 150)
+        };
+        panel.AddView(heightSlider, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MatchParent, Dp(48)));
+
+        void Preview()
+        {
+            var x = Math.Clamp(widthSlider.Progress, 50, 150) / 100f;
+            var y = Math.Clamp(heightSlider.Progress, 50, 150) / 100f;
+            widthLabel.Text = $"Ширина: {widthSlider.Progress}%";
+            heightLabel.Text = $"Высота: {heightSlider.Progress}%";
+            _lockClock!.ScaleX = x;
+            _lockClock.ScaleY = y;
+        }
+
+        widthSlider.ProgressChanged += (_, e) => { if (e.FromUser) Preview(); };
+        heightSlider.ProgressChanged += (_, e) => { if (e.FromUser) Preview(); };
+
+        new AlertDialog.Builder(this)
+            .SetTitle("Размер часов")
+            .SetMessage("Растягивай ширину и высоту независимо друг от друга")
+            .SetView(panel)
+            .SetPositiveButton("Сохранить", (_, _) =>
+            {
+                var x = Math.Clamp(widthSlider.Progress, 50, 150) / 100f;
+                var y = Math.Clamp(heightSlider.Progress, 50, 150) / 100f;
+                prefs?.Edit()
+                    ?.PutFloat("lock_clock_scale_x", x)
+                    ?.PutFloat("lock_clock_scale_y", y)
+                    ?.Apply();
+                _lockClock!.ScaleX = x;
+                _lockClock.ScaleY = y;
+            })
+            .SetNegativeButton("Отмена", (_, _) =>
+            {
+                _lockClock!.ScaleX = originalX;
+                _lockClock.ScaleY = originalY;
+            })
+            .SetNeutralButton("Сброс", (_, _) =>
+            {
+                prefs?.Edit()
+                    ?.PutFloat("lock_clock_scale_x", 1f)
+                    ?.PutFloat("lock_clock_scale_y", 1f)
+                    ?.Apply();
+                _lockClock!.ScaleX = 1f;
+                _lockClock.ScaleY = 1f;
+            })
             .Show();
     }
 
