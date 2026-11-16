@@ -37,6 +37,7 @@ public sealed class MainActivity : Activity
     private ImageView? _lockBackground;
     private ImageView? _lockForeground;
     private TextView? _lockClock;
+    private TextView? _lockDate;
     private int _lockClockPosition = 0;
     private float _lockTouchX;
     private float _lockTouchY;
@@ -286,6 +287,7 @@ public sealed class MainActivity : Activity
 
     private FrameLayout BuildLockScreen()
     {
+        _lockClockPosition = GetSharedPreferences("tablet_os_settings", FileCreationMode.Private)?.GetInt("lock_clock_position", _lockClockPosition) ?? _lockClockPosition;
         var overlay = new FrameLayout(this) { Visibility = ViewStates.Gone, Clickable = true, Focusable = true };
         var bg = new ImageView(this) { ScaleType = ImageView.ScaleType.CenterCrop };
         _lockBackground = bg;
@@ -315,7 +317,6 @@ public sealed class MainActivity : Activity
             Gravity = GravityFlags.Center,
             Typeface = Typeface.Create("sans-serif-light", TypefaceStyle.Normal),
             LetterSpacing = -0.035f,
-            ShadowLayer = 18f, // subtle separation from bright wallpapers
         };
         clock.SetTextColor(Color.White);
         _lockClock = clock;
@@ -325,6 +326,7 @@ public sealed class MainActivity : Activity
 
         var date = MakeText(DateTime.Now.ToString("dddd, d MMMM", CultureInfo.GetCultureInfo("ru-RU")), 17, "#FFFFFFFF", false);
         date.Gravity = GravityFlags.Center;
+        _lockDate = date;
         var dateParams = new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MatchParent, Dp(34), GravityFlags.Top);
         dateParams.TopMargin = Dp(_lockClockPosition == 0 ? 207 : 313);
         overlay.AddView(date, dateParams);
@@ -462,15 +464,12 @@ public sealed class MainActivity : Activity
         GetSharedPreferences("tablet_os_settings", FileCreationMode.Private)?.Edit()?.PutInt("lock_clock_position", _lockClockPosition)?.Apply();
         var positions = new[] { 104, 210, 300 };
         var datePositions = new[] { 207, 313, 403 };
-        var lp = (FrameLayout.LayoutParams)_lockClock!.LayoutParameters!;
-        lp.TopMargin = Dp(positions[_lockClockPosition]);
-        _lockClock.LayoutParameters = lp;
-        var date = _lockScreen.FindViewsWithText(new List<View>(), DateTime.Now.ToString("dddd, d MMMM", CultureInfo.GetCultureInfo("ru-RU")), FindViewsWithTextOptions.None);
-        // Rebuild to update the matching date label while preserving the selected position.
-        _root.RemoveView(_lockScreen);
-        _lockScreen = BuildLockScreen();
-        _root.AddView(_lockScreen, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MatchParent, ViewGroup.LayoutParams.MatchParent));
-        _lockScreen.Visibility = ViewStates.Visible;
+        var clockParams = (FrameLayout.LayoutParams)_lockClock!.LayoutParameters!;
+        clockParams.TopMargin = Dp(positions[_lockClockPosition]);
+        _lockClock.LayoutParameters = clockParams;
+        var dateParams = (FrameLayout.LayoutParams)_lockDate!.LayoutParameters!;
+        dateParams.TopMargin = Dp(datePositions[_lockClockPosition]);
+        _lockDate.LayoutParameters = dateParams;
     }
 
     private FrameLayout BuildNotificationCenter()
