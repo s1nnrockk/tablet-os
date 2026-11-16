@@ -552,8 +552,8 @@ public sealed class MainActivity : Activity
         panel.AddView(widthLabel);
         var widthSlider = new SeekBar(this)
         {
-            Max = 150,
-            Progress = Math.Clamp((int)Math.Round(originalX * 100), 50, 150)
+            Max = 100,
+            Progress = Math.Clamp((int)Math.Round(originalX * 100), 50, 150) - 50
         };
         panel.AddView(widthSlider, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MatchParent, Dp(48)));
 
@@ -562,17 +562,19 @@ public sealed class MainActivity : Activity
         panel.AddView(heightLabel);
         var heightSlider = new SeekBar(this)
         {
-            Max = 150,
-            Progress = Math.Clamp((int)Math.Round(originalY * 100), 50, 150)
+            Max = 100,
+            Progress = Math.Clamp((int)Math.Round(originalY * 100), 50, 150) - 50
         };
         panel.AddView(heightSlider, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MatchParent, Dp(48)));
 
         void Preview()
         {
-            var x = Math.Clamp(widthSlider.Progress, 50, 150) / 100f;
-            var y = Math.Clamp(heightSlider.Progress, 50, 150) / 100f;
-            widthLabel.Text = $"Ширина: {widthSlider.Progress}%";
-            heightLabel.Text = $"Высота: {heightSlider.Progress}%";
+            var widthPercent = widthSlider.Progress + 50;
+            var heightPercent = heightSlider.Progress + 50;
+            var x = widthPercent / 100f;
+            var y = heightPercent / 100f;
+            widthLabel.Text = $"Ширина: {widthPercent}%";
+            heightLabel.Text = $"Высота: {heightPercent}%";
             _lockClock!.ScaleX = x;
             _lockClock.ScaleY = y;
         }
@@ -586,8 +588,8 @@ public sealed class MainActivity : Activity
             .SetView(panel)
             .SetPositiveButton("Сохранить", (_, _) =>
             {
-                var x = Math.Clamp(widthSlider.Progress, 50, 150) / 100f;
-                var y = Math.Clamp(heightSlider.Progress, 50, 150) / 100f;
+                var x = (widthSlider.Progress + 50) / 100f;
+                var y = (heightSlider.Progress + 50) / 100f;
                 prefs?.Edit()
                     ?.PutFloat("lock_clock_scale_x", x)
                     ?.PutFloat("lock_clock_scale_y", y)
