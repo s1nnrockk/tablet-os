@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Runtime.InteropServices;
 using Android.App;
 using Android.Content;
 using Android.Content.PM;
@@ -22,6 +23,7 @@ public sealed class MainActivity : Activity
     private TextView _date = null!;
     private TextView _emptyState = null!;
     private LinearLayout _appGrid = null!;
+    private LinearLayout _dock = null!;
     private EditText _search = null!;
     private Button _setLauncherButton = null!;
     private readonly List<AppEntry> _apps = new();
@@ -63,7 +65,7 @@ public sealed class MainActivity : Activity
             new[] { Color.ParseColor("#EAF1F8"), Color.ParseColor("#F7EEE8"), Color.ParseColor("#F4F3EE") }));
 
         var page = new LinearLayout(this) { Orientation = Orientation.Vertical };
-        page.SetPadding(Dp(26), Dp(22), Dp(26), Dp(28));
+        page.SetPadding(Dp(26), Dp(22), Dp(26), Dp(124));
 
         var topLine = new LinearLayout(this)
         {
@@ -162,7 +164,13 @@ public sealed class MainActivity : Activity
         page.AddView(footer, footerParams);
 
         scroll.AddView(page);
-        SetContentView(scroll);
+        var root = new FrameLayout(this);
+        root.AddView(scroll, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MatchParent, ViewGroup.LayoutParams.MatchParent));
+        _dock = BuildDock();
+        var dockParams = new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MatchParent, Dp(82), GravityFlags.Bottom | GravityFlags.CenterHorizontal);
+        dockParams.SetMargins(Dp(22), 0, Dp(22), Dp(16));
+        root.AddView(_dock, dockParams);
+        SetContentView(root);
         UpdateClock();
 
         dateTop.Text = DateTime.Now.ToString("dddd, d MMMM", CultureInfo.GetCultureInfo("ru-RU"));
@@ -197,6 +205,7 @@ public sealed class MainActivity : Activity
 
             _apps.Sort((a, b) => string.Compare(a.Label, b.Label, StringComparison.CurrentCultureIgnoreCase));
             RenderApps(_search?.Text ?? string.Empty);
+            RefreshDock();
         }
         catch (Exception)
         {
@@ -212,7 +221,7 @@ public sealed class MainActivity : Activity
 
         _appGrid.RemoveAllViews();
         var filtered = _apps
-            .Where(a => a.Label.Contains(query.Trim(), StringComparison.CurrentCultureIgnoreCase))
+            .Where(a => NativeMatches(query.Trim(), a.Label))
             .ToList();
 
         _emptyState.Visibility = filtered.Count == 0 ? ViewStates.Visible : ViewStates.Gone;
@@ -281,6 +290,82 @@ public sealed class MainActivity : Activity
         };
         return tile;
     }
+
+
+    private LinearLayout BuildDock()
+    {
+        var dock = new LinearLayout(this) { Orientation = Orientation.Horizontal, Gravity = GravityFlags.Center, ClipToPadding = false, Elevation = Dp(16) };
+        dock.SetPadding(Dp(10), Dp(9), Dp(10), Dp(9));
+        var glass = new GradientDrawable();
+        glass.SetColor(Color.ParseColor("#DDFBFDFF"));
+        glass.SetCornerRadius(Dp(27));
+        glass.SetStroke(Dp(1), Color.ParseColor("#F8FFFFFF"));
+        dock.Background = glass;
+        return dock;
+    }
+
+    private void RefreshDock()
+    {
+        if (_dock is null) return;
+        _dock.RemoveAllViews();
+        var preferred = new[] { "com.android.chrome", "com.google.android.youtube", "com.google.android.gm", "com.android.settings", "com.google.android.apps.photos", "com.android.camera2" };
+        var pinned = new List<AppEntry>();
+        foreach (var packageName in preferred)
+        {
+            var match = _apps.FirstOrDefault(a => a.PackageName == packageName);
+            if (match is not null && !pinned.Any(a => a.PackageName == match.PackageName)) pinned.Add(match);
+            if (pinned.Count == 5) break;
+        }
+        foreach (var app in _apps)
+        {
+            if (pinned.Count >= 5) break;
+            if (!pinned.Any(a => a.PackageName == app.PackageName)) pinned.Add(app);
+        }
+        foreach (var app in pinned)
+        {
+            var item = new FrameLayout(this) { Clickable = true, Focusable = true, ForegroundGravity = GravityFlags.Center };
+            item.Background = Rounded("#26FFFFFF", 18);
+            var image = new ImageView(this);
+            image.SetImageDrawable(app.Icon);
+            image.SetScaleType(ImageView.ScaleType.FitCenter);
+            item.AddView(image, new FrameLayout.LayoutParams(Dp(43), Dp(43), GravityFlags.Center));
+            item.Click += (_, _) => LaunchApp(app);
+            var itemParams = new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MatchParent, 1);
+            itemParams.SetMargins(Dp(3), 0, Dp(3), 0);
+            _dock.AddView(item, itemParams);
+        }
+    }
+
+    private void LaunchApp(AppEntry app)
+    {
+        try
+        {
+            var launch = PackageManager?.GetLaunchIntentForPackage(app.PackageName);
+            if (launch is not null) StartActivity(launch);
+        }
+        catch (ActivityNotFoundException)
+        {
+            Toast.MakeText(this, "Не удалось открыть приложение", ToastLength.Short)?.Show();
+        }
+    }
+
+    private static bool NativeMatches(string query, string label)
+    {
+        if (string.IsNullOrWhiteSpace(query)) return true;
+        var queryPtr = Marshal.StringToCoTaskMemUTF8(query);
+        var labelPtr = Marshal.StringToCoTaskMemUTF8(label);
+        try { return NativeSearchMatch(queryPtr, labelPtr) != 0; }
+        catch (DllNotFoundException) { return label.Contains(query, StringComparison.CurrentCultureIgnoreCase); }
+        catch (EntryPointNotFoundException) { return label.Contains(query, StringComparison.CurrentCultureIgnoreCase); }
+        finally
+        {
+            Marshal.FreeCoTaskMem(queryPtr);
+            Marshal.FreeCoTaskMem(labelPtr);
+        }
+    }
+
+    [DllImport("tabletos_core", EntryPoint = "tabletos_match", CallingConvention = CallingConvention.Cdecl)]
+    private static extern byte NativeSearchMatch(IntPtr query, IntPtr label);
 
     private void UpdateClock()
     {
