@@ -34,7 +34,7 @@ public sealed class NotificationCaptureService : NotificationListenerService
         string appName;
         try
         {
-            var info = PackageManager?.GetApplicationInfo(sbn.PackageName, 0);
+            var info = PackageManager?.GetApplicationInfo(sbn.PackageName, PackageInfoFlags.MatchAll);
             appName = info is null ? sbn.PackageName : PackageManager!.GetApplicationLabel(info)?.ToString() ?? sbn.PackageName;
         }
         catch
