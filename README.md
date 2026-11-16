@@ -2,17 +2,20 @@
 
 An Android tablet home-screen launcher built with C# and Rust.
 
-## Current foundation
+## Current features
 
 - Android 10+ launcher entry point (HOME / DEFAULT intent filter).
-- The first app launch requests Android's official Home role through RoleManager.
-- The user confirms the system-owned dialog; the app cannot silently replace the current launcher.
-- A fallback button lets the user request the Home role again after declining.
-- GitHub Actions builds an installable APK artifact.
+- First-launch request for Android's official Home role through RoleManager.
+- HyperOS-inspired, original tablet home screen with a soft blue/lilac/warm-neutral palette.
+- Large clock and localized date.
+- Live list of launchable installed apps using their real Android icons and labels.
+- App search and tap-to-launch behavior.
+- Android package visibility query scoped to launcher activities.
+- GitHub Actions APK build workflow.
 
 ## Technology
 
-- C# / .NET for Android: Android lifecycle, launcher integration and UI.
+- C# / .NET for Android: Android lifecycle, launcher integration, app discovery and UI.
 - Rust: planned native core, connected through a small C ABI.
 
 ## Build
@@ -24,6 +27,7 @@ Install .NET 9 SDK, the Android workload and JDK 17, then run:
 
 Minimum Android version: Android 10 (API 29).
 
-## Current status
+## Current limitations
 
-This is the launcher-registration foundation. The full home screen, app grid, widgets and Rust engine are not implemented yet.
+- This is the first home-screen implementation; widgets, drag-and-drop placement, dock customization, gestures and Rust integration are not implemented yet.
+- App icons and labels are provided by Android and vary by device/manufacturer.
