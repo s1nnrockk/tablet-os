@@ -18,6 +18,8 @@ public sealed class MainActivity : Activity
     private const int HomeRoleRequestCode = 4101;
     private const int WallpaperRequestCode = 4102;
     private const int AppBackgroundRequestCode = 4103;
+    private const int LockWallpaperRequestCode = 4104;
+    private const int LockForegroundRequestCode = 4105;
     private const int AppColumns = 5;
 
     private RoleManager? _roleManager;
@@ -31,6 +33,13 @@ public sealed class MainActivity : Activity
     private FrameLayout _root = null!;
     private FrameLayout _controlCenter = null!;
     private FrameLayout _notificationCenter = null!;
+    private FrameLayout _lockScreen = null!;
+    private ImageView? _lockBackground;
+    private ImageView? _lockForeground;
+    private TextView? _lockClock;
+    private int _lockClockPosition = 0;
+    private float _lockTouchX;
+    private float _lockTouchY;
     private string? _pendingBackgroundPackage;
     private ImageView _wallpaperView = null!;
     private bool _returnAnimationPending;
@@ -87,6 +96,8 @@ public sealed class MainActivity : Activity
         var topSpacer = new Space(this);
         var wallpaperButton = MakePillButton("Обои", "#FFFFFF");
         wallpaperButton.Click += (_, _) => ChooseWallpaper();
+        var lockButton = MakePillButton("Экран блокировки", "#E7F0FA");
+        lockButton.Click += (_, _) => OpenLockScreen();
         var notificationButton = MakePillButton("Уведомления", "#E7F0FA");
         notificationButton.Click += (_, _) => OpenNotificationCenter();
         var centerButton = MakePillButton("Быстрые настройки", "#E7F0FA");
@@ -95,6 +106,7 @@ public sealed class MainActivity : Activity
         topLine.AddView(brand, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WrapContent, Dp(34)));
         topLine.AddView(topSpacer, new LinearLayout.LayoutParams(0, 1, 1));
         topLine.AddView(wallpaperButton, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WrapContent, Dp(34)));
+        topLine.AddView(lockButton, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WrapContent, Dp(34)));
         topLine.AddView(notificationButton, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WrapContent, Dp(34)));
         topLine.AddView(centerButton, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WrapContent, Dp(34)));
         topLine.AddView(dateTop, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WrapContent, Dp(34)));
@@ -196,6 +208,8 @@ public sealed class MainActivity : Activity
         _root.AddView(_controlCenter, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MatchParent, ViewGroup.LayoutParams.MatchParent));
         _notificationCenter = BuildNotificationCenter();
         _root.AddView(_notificationCenter, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MatchParent, ViewGroup.LayoutParams.MatchParent));
+        _lockScreen = BuildLockScreen();
+        _root.AddView(_lockScreen, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MatchParent, ViewGroup.LayoutParams.MatchParent));
         SetContentView(_root);
         UpdateClock();
 
@@ -268,6 +282,195 @@ public sealed class MainActivity : Activity
         panelParams.SetMargins(Dp(8), Dp(8), Dp(8), 0);
         overlay.AddView(panel, panelParams);
         return overlay;
+    }
+
+    private FrameLayout BuildLockScreen()
+    {
+        var overlay = new FrameLayout(this) { Visibility = ViewStates.Gone, Clickable = true, Focusable = true };
+        var bg = new ImageView(this) { ScaleType = ImageView.ScaleType.CenterCrop };
+        _lockBackground = bg;
+        var savedWallpaper = GetSharedPreferences("tablet_os_settings", FileCreationMode.Private)?.GetString("lock_wallpaper_uri", null);
+        if (!string.IsNullOrWhiteSpace(savedWallpaper))
+        {
+            try { bg.SetImageURI(Android.Net.Uri.Parse(savedWallpaper)); } catch { }
+        }
+        else
+        {
+            bg.SetImageDrawable(new Android.Graphics.Drawables.GradientDrawable(
+                Android.Graphics.Drawables.GradientDrawable.Orientation.TlBr,
+                new[] { Color.ParseColor("#183B57"), Color.ParseColor("#668DAA"), Color.ParseColor("#D8C9B7") }));
+        }
+        overlay.AddView(bg, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MatchParent, ViewGroup.LayoutParams.MatchParent));
+
+        var shade = new View(this);
+        shade.SetBackground(new Android.Graphics.Drawables.GradientDrawable(
+            Android.Graphics.Drawables.GradientDrawable.Orientation.TopBottom,
+            new[] { Color.ParseColor("#55091A2A"), Color.ParseColor("#00101A28"), Color.ParseColor("#77091A2A") }));
+        overlay.AddView(shade, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MatchParent, ViewGroup.LayoutParams.MatchParent));
+
+        var clock = new TextView(this)
+        {
+            Text = DateTime.Now.ToString("HH:mm"),
+            TextSize = 76,
+            Gravity = GravityFlags.Center,
+            Typeface = Typeface.Create("sans-serif-light", TypefaceStyle.Normal),
+            LetterSpacing = -0.035f,
+            ShadowLayer = 18f, // subtle separation from bright wallpapers
+        };
+        clock.SetTextColor(Color.White);
+        _lockClock = clock;
+        var clockParams = new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MatchParent, Dp(116), GravityFlags.Top);
+        clockParams.TopMargin = Dp(_lockClockPosition == 0 ? 104 : 210);
+        overlay.AddView(clock, clockParams);
+
+        var date = MakeText(DateTime.Now.ToString("dddd, d MMMM", CultureInfo.GetCultureInfo("ru-RU")), 17, "#FFFFFFFF", false);
+        date.Gravity = GravityFlags.Center;
+        var dateParams = new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MatchParent, Dp(34), GravityFlags.Top);
+        dateParams.TopMargin = Dp(_lockClockPosition == 0 ? 207 : 313);
+        overlay.AddView(date, dateParams);
+
+        var foreground = new ImageView(this) { ScaleType = ImageView.ScaleType.FitXY };
+        _lockForeground = foreground;
+        var savedForeground = GetSharedPreferences("tablet_os_settings", FileCreationMode.Private)?.GetString("lock_foreground_uri", null);
+        if (!string.IsNullOrWhiteSpace(savedForeground))
+        {
+            try { foreground.SetImageURI(Android.Net.Uri.Parse(savedForeground)); } catch { }
+        }
+        // Put a transparent PNG cut-out here: it is layered above the clock to create
+        // the iOS-style depth effect without pretending Android can segment any photo.
+        overlay.AddView(foreground, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MatchParent, ViewGroup.LayoutParams.MatchParent));
+
+        var bottom = new LinearLayout(this) { Orientation = Orientation.Vertical, Gravity = GravityFlags.Center };
+        bottom.SetPadding(Dp(20), Dp(12), Dp(20), Dp(28));
+        var notif = MakeText("Уведомления появятся здесь", 13, "#FFFFFFFF", false);
+        notif.Gravity = GravityFlags.Center;
+        var count = NotificationCaptureService.GetRecent().Count;
+        notif.Text = count == 0 ? "Нет новых уведомлений" : $"{count} уведомлений";
+        bottom.AddView(notif, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MatchParent, Dp(42)));
+
+        var unlock = MakePillButton("Проведите вверх, чтобы открыть", "#EFFFFFFF");
+        unlock.TextSize = 14;
+        unlock.SetTextColor(Color.ParseColor("#23394F"));
+        unlock.Click += (_, _) => CloseLockScreen();
+        bottom.AddView(unlock, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MatchParent, Dp(54)));
+
+        var customize = new LinearLayout(this) { Orientation = Orientation.Horizontal, Gravity = GravityFlags.Center };
+        var wallpaper = MakePillButton("Обои", "#55FFFFFF");
+        wallpaper.Click += (_, _) => ChooseLockWallpaper();
+        var depth = MakePillButton("Слой переднего плана", "#55FFFFFF");
+        depth.Click += (_, _) => ChooseLockForeground();
+        var position = MakePillButton("Положение часов", "#55FFFFFF");
+        position.Click += (_, _) => CycleLockClockPosition();
+        customize.AddView(wallpaper);
+        customize.AddView(depth);
+        customize.AddView(position);
+        bottom.AddView(customize, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MatchParent, Dp(48)));
+
+        var bottomParams = new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MatchParent, ViewGroup.LayoutParams.WrapContent, GravityFlags.Bottom);
+        overlay.AddView(bottom, bottomParams);
+
+        overlay.Touch += (_, e) =>
+        {
+            if (e.Event is null) return;
+            if (e.Event.Action == MotionEventActions.Down)
+            {
+                _lockTouchX = e.Event.GetX();
+                _lockTouchY = e.Event.GetY();
+            }
+            else if (e.Event.Action == MotionEventActions.Move)
+            {
+                var dx = Math.Clamp((e.Event.GetX() - _lockTouchX) / Dp(18), -1.4f, 1.4f);
+                var dy = Math.Clamp((e.Event.GetY() - _lockTouchY) / Dp(18), -1.4f, 1.4f);
+                bg.TranslationX = dx * Dp(9);
+                bg.TranslationY = dy * Dp(9);
+                clock.TranslationX = -dx * Dp(5);
+                clock.TranslationY = -dy * Dp(5);
+                foreground.TranslationX = -dx * Dp(17);
+                foreground.TranslationY = -dy * Dp(17);
+            }
+            else if (e.Event.Action == MotionEventActions.Up && e.Event.GetY() - _lockTouchY < -Dp(70))
+                CloseLockScreen();
+        };
+        return overlay;
+    }
+
+    private void OpenLockScreen()
+    {
+        if (_lockScreen is null) return;
+        _lockClock!.Text = DateTime.Now.ToString("HH:mm");
+        _lockScreen.Visibility = ViewStates.Visible;
+        _lockScreen.Alpha = 0f;
+        _lockScreen.TranslationY = Dp(35);
+        _lockScreen.Animate()?.Alpha(1f)?.TranslationY(0)?.SetDuration(420)
+            ?.SetInterpolator(new Android.Views.Animations.DecelerateInterpolator(1.7f))?.Start();
+    }
+
+    private void CloseLockScreen()
+    {
+        if (_lockScreen is null) return;
+        _lockScreen.Animate()?.Alpha(0f)?.TranslationY(-Dp(45))?.SetDuration(260)
+            ?.WithEndAction(new Java.Lang.Runnable(() =>
+            {
+                if (_lockScreen is not null) _lockScreen.Visibility = ViewStates.Gone;
+                if (_lockScreen is not null) _lockScreen.TranslationY = 0;
+            }))?.Start();
+    }
+
+    private void ChooseLockWallpaper()
+    {
+        var picker = new Intent(Intent.ActionOpenDocument);
+        picker.SetType("image/*");
+        picker.AddCategory(Intent.CategoryOpenable);
+        StartActivityForResult(picker, LockWallpaperRequestCode);
+    }
+
+    private void ChooseLockForeground()
+    {
+        var picker = new Intent(Intent.ActionOpenDocument);
+        picker.SetType("image/*");
+        picker.AddCategory(Intent.CategoryOpenable);
+        StartActivityForResult(picker, LockForegroundRequestCode);
+    }
+
+    private void ApplyLockWallpaper(Android.Net.Uri uri)
+    {
+        try
+        {
+            ContentResolver?.TakePersistableUriPermission(uri, ActivityFlags.GrantReadUriPermission);
+            GetSharedPreferences("tablet_os_settings", FileCreationMode.Private)?.Edit()?.PutString("lock_wallpaper_uri", uri.ToString())?.Apply();
+            _lockBackground?.SetImageURI(uri);
+            Toast.MakeText(this, "Обои экрана блокировки сохранены", ToastLength.Short)?.Show();
+        }
+        catch { Toast.MakeText(this, "Не удалось применить обои", ToastLength.Short)?.Show(); }
+    }
+
+    private void ApplyLockForeground(Android.Net.Uri uri)
+    {
+        try
+        {
+            ContentResolver?.TakePersistableUriPermission(uri, ActivityFlags.GrantReadUriPermission);
+            GetSharedPreferences("tablet_os_settings", FileCreationMode.Private)?.Edit()?.PutString("lock_foreground_uri", uri.ToString())?.Apply();
+            _lockForeground?.SetImageURI(uri);
+            Toast.MakeText(this, "Слой глубины сохранён. Используй PNG с прозрачным фоном.", ToastLength.Long)?.Show();
+        }
+        catch { Toast.MakeText(this, "Не удалось применить слой", ToastLength.Short)?.Show(); }
+    }
+
+    private void CycleLockClockPosition()
+    {
+        _lockClockPosition = (_lockClockPosition + 1) % 3;
+        GetSharedPreferences("tablet_os_settings", FileCreationMode.Private)?.Edit()?.PutInt("lock_clock_position", _lockClockPosition)?.Apply();
+        var positions = new[] { 104, 210, 300 };
+        var datePositions = new[] { 207, 313, 403 };
+        var lp = (FrameLayout.LayoutParams)_lockClock!.LayoutParameters!;
+        lp.TopMargin = Dp(positions[_lockClockPosition]);
+        _lockClock.LayoutParameters = lp;
+        var date = _lockScreen.FindViewsWithText(new List<View>(), DateTime.Now.ToString("dddd, d MMMM", CultureInfo.GetCultureInfo("ru-RU")), FindViewsWithTextOptions.None);
+        // Rebuild to update the matching date label while preserving the selected position.
+        _root.RemoveView(_lockScreen);
+        _lockScreen = BuildLockScreen();
+        _root.AddView(_lockScreen, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MatchParent, ViewGroup.LayoutParams.MatchParent));
+        _lockScreen.Visibility = ViewStates.Visible;
     }
 
     private FrameLayout BuildNotificationCenter()
@@ -782,6 +985,10 @@ public sealed class MainActivity : Activity
             ApplyWallpaper(selectedUri);
         if (requestCode == AppBackgroundRequestCode && resultCode == Result.Ok && data?.Data is Android.Net.Uri appUri && !string.IsNullOrWhiteSpace(_pendingBackgroundPackage))
             ApplyAppBackground(_pendingBackgroundPackage, appUri);
+        if (requestCode == LockWallpaperRequestCode && resultCode == Result.Ok && data?.Data is Android.Net.Uri lockUri)
+            ApplyLockWallpaper(lockUri);
+        if (requestCode == LockForegroundRequestCode && resultCode == Result.Ok && data?.Data is Android.Net.Uri foregroundUri)
+            ApplyLockForeground(foregroundUri);
     }
 
     private TextView MakeText(string text, float size, string color, bool bold)
