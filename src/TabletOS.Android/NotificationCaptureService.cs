@@ -32,15 +32,20 @@ public sealed class NotificationCaptureService : NotificationListenerService
         var text = extras.GetCharSequence(Notification.ExtraText)?.ToString();
         if (string.IsNullOrWhiteSpace(title) && string.IsNullOrWhiteSpace(text)) return;
 
-        string appName;
+        var packageName = sbn.PackageName;
+        if (string.IsNullOrWhiteSpace(packageName)) return;
+
+        var appName = packageName;
         try
         {
-            var info = PackageManager?.GetApplicationInfo(sbn.PackageName, PackageInfoFlags.MatchAll);
-            appName = info is null ? sbn.PackageName : PackageManager!.GetApplicationLabel(info)?.ToString() ?? sbn.PackageName;
+            var packageManager = PackageManager;
+            var info = packageManager?.GetApplicationInfo(packageName, PackageInfoFlags.MatchAll);
+            if (info is not null && packageManager is not null)
+                appName = packageManager.GetApplicationLabel(info)?.ToString() ?? packageName;
         }
         catch
         {
-            appName = sbn.PackageName;
+            // Keep the package name as a safe fallback when app metadata is unavailable.
         }
 
         lock (Sync)
