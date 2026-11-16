@@ -490,13 +490,15 @@ public sealed class MainActivity : Activity
             (Size: 62f, Family: "monospace", Weight: TypefaceStyle.Normal, Spacing: -0.04f, Format: "HH:mm")
         };
         var fonts = new[] { "sans-serif-light", "sans-serif", "sans-serif-rounded", "serif", "monospace" };
-        var colors = new[] { "#FFFFFFFF", "#FFF1D6", "#D9F0FF", "#D9FFE9", "#FFE0E8", "#E5DEFF", "#202A36", "#101820" };
+        var colors = new[] { "#FFFFFFFF", "#FFFFF1D6", "#FFD9F0FF", "#FFD9FFE9", "#FFFFE0E8", "#FFE5DEFF", "#FF202A36", "#FF101820" };
         var style = styles[Math.Clamp(_lockClockStyle, 0, styles.Length - 1)];
         clock.TextSize = style.Size;
         clock.Typeface = Typeface.Create(fonts[Math.Clamp(_lockClockFont, 0, fonts.Length - 1)], style.Weight);
         clock.LetterSpacing = style.Spacing;
         clock.Text = DateTime.Now.ToString(style.Format);
-        clock.SetTextColor(Color.ParseColor(colors[Math.Clamp(_lockClockColor, 0, colors.Length - 1)]));
+        var customColor = prefs?.GetString("lock_clock_custom_color", "#FFFFFFFF") ?? "#FFFFFFFF";
+        var selectedColor = _lockClockColor == 8 ? customColor : colors[Math.Clamp(_lockClockColor, 0, colors.Length - 1)];
+        clock.SetTextColor(Color.ParseColor(selectedColor));
         clock.SetShadowLayer(12f, 0f, 2f, Color.Argb(110, 0, 0, 0));
     }
 
@@ -532,17 +534,68 @@ public sealed class MainActivity : Activity
 
     private void ChooseLockClockColor()
     {
-        var names = new[] { "Белый", "Тёплый кремовый", "Ледяной голубой", "Мятный", "Розовый", "Лавандовый", "Графитовый", "Почти чёрный" };
+        var names = new[] { "Белый", "Тёплый кремовый", "Ледяной голубой", "Мятный", "Розовый", "Лавандовый", "Графитовый", "Почти чёрный", "Свой цвет…" };
         new AlertDialog.Builder(this)
             .SetTitle("Цвет часов")
             .SetItems(names, (_, e) =>
             {
+                if (e.Which == 8)
+                {
+                    ShowCustomLockClockColor();
+                    return;
+                }
                 _lockClockColor = e.Which;
                 GetSharedPreferences("tablet_os_settings", FileCreationMode.Private)?.Edit()?.PutInt("lock_clock_color", _lockClockColor)?.Apply();
                 ApplyLockClockPreferences(_lockClock!);
             })
             .SetNegativeButton("Отмена", (_, _) => { })
             .Show();
+    }
+
+    private void ShowCustomLockClockColor()
+    {
+        var prefs = GetSharedPreferences("tablet_os_settings", FileCreationMode.Private);
+        var initial = prefs?.GetString("lock_clock_custom_color", "#FFFFFFFF") ?? "#FFFFFFFF";
+        var parsed = Color.ParseColor(initial);
+        var panel = new LinearLayout(this) { Orientation = Orientation.Vertical };
+        panel.SetPadding(Dp(22), Dp(12), Dp(22), Dp(8));
+        var preview = MakeText("Предпросмотр часов  09:41", 22, initial, false);
+        preview.Gravity = GravityFlags.Center;
+        preview.SetPadding(0, Dp(8), 0, Dp(16));
+        panel.AddView(preview);
+        var red = AddRgbSlider(panel, "Красный", parsed.R);
+        var green = AddRgbSlider(panel, "Зелёный", parsed.G);
+        var blue = AddRgbSlider(panel, "Синий", parsed.B);
+        void RefreshPreview()
+        {
+            var hex = $"#{red.Progress:X2}{green.Progress:X2}{blue.Progress:X2}";
+            preview.SetTextColor(Color.ParseColor(hex));
+        }
+        red.ProgressChanged += (_, e) => { if (e.FromUser) RefreshPreview(); };
+        green.ProgressChanged += (_, e) => { if (e.FromUser) RefreshPreview(); };
+        blue.ProgressChanged += (_, e) => { if (e.FromUser) RefreshPreview(); };
+
+        new AlertDialog.Builder(this)
+            .SetTitle("Свой цвет часов")
+            .SetView(panel)
+            .SetPositiveButton("Применить", (_, _) =>
+            {
+                var hex = $"#FF{red.Progress:X2}{green.Progress:X2}{blue.Progress:X2}";
+                prefs?.Edit()?.PutString("lock_clock_custom_color", hex)?.PutInt("lock_clock_color", 8)?.Apply();
+                _lockClockColor = 8;
+                ApplyLockClockPreferences(_lockClock!);
+            })
+            .SetNegativeButton("Отмена", (_, _) => { })
+            .Show();
+    }
+
+    private SeekBar AddRgbSlider(LinearLayout parent, string label, int value)
+    {
+        var caption = MakeText(label, 13, "#657487", true);
+        parent.AddView(caption);
+        var slider = new SeekBar(this) { Max = 255, Progress = value };
+        parent.AddView(slider, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MatchParent, Dp(42)));
+        return slider;
     }
 
     private void CycleLockClockPosition()
