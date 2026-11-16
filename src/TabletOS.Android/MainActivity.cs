@@ -1,14 +1,14 @@
 using System.Globalization;
 using System.Runtime.InteropServices;
-using Android.App;
-using Android.App.Roles;
-using Android.Content;
-using Android.Content.PM;
-using Android.Graphics;
-using Android.Graphics.Drawables;
-using Android.OS;
-using Android.Views;
-using Android.Widget;
+using global::Android.App;
+using global::Android.App.Roles;
+using global::Android.Content;
+using global::Android.Content.PM;
+using global::Android.Graphics;
+using global::Android.Graphics.Drawables;
+using global::Android.OS;
+using global::Android.Views;
+using global::Android.Widget;
 
 namespace TabletOS.Android;
 
@@ -93,8 +93,7 @@ public sealed class MainActivity : Activity
 
         var topLine = new LinearLayout(this)
         {
-            Orientation = Orientation.Horizontal,
-            Gravity = GravityFlags.CenterVertical
+            Orientation = Orientation.Horizontal
         };
 
         var brand = MakeText("TABLET OS", 13, "#526579", true);
@@ -129,8 +128,7 @@ public sealed class MainActivity : Activity
 
         var heroBottom = new LinearLayout(this)
         {
-            Orientation = Orientation.Horizontal,
-            Gravity = GravityFlags.CenterVertical
+            Orientation = Orientation.Horizontal
         };
         var focus = MakeText("Ваш планшет. Ваше пространство.", 13, "#52677E", false);
         var heroSpacer = new Space(this);
@@ -157,10 +155,11 @@ public sealed class MainActivity : Activity
         _search = new EditText(this)
         {
             Hint = "Поиск приложений",
-            SingleLine = true,
+            
             TextSize = 15,
-            InputType = Android.Text.InputTypes.ClassText
+            InputType = global::Android.Text.InputTypes.ClassText
         };
+        _search.SetSingleLine(true);
         _search.SetTextColor(Color.ParseColor("#26384A"));
         _search.SetHintTextColor(Color.ParseColor("#8492A0"));
         _search.SetPadding(Dp(18), 0, Dp(18), 0);
@@ -173,8 +172,7 @@ public sealed class MainActivity : Activity
 
         var appHeading = new LinearLayout(this)
         {
-            Orientation = Orientation.Horizontal,
-            Gravity = GravityFlags.CenterVertical
+            Orientation = Orientation.Horizontal
         };
         var headingText = MakeText("Приложения", 21, "#26384A", true);
         var appCount = MakeText("УСТАНОВЛЕННЫЕ", 10, "#8190A0", true);
@@ -201,7 +199,8 @@ public sealed class MainActivity : Activity
 
         scroll.AddView(page);
         _root = new FrameLayout(this);
-        _wallpaperView = new ImageView(this) { ScaleType = ImageView.ScaleType.CenterCrop };
+        _wallpaperView = new ImageView(this);
+        _wallpaperView.SetScaleType(ImageView.ScaleType.CenterCrop);
         _root.AddView(_wallpaperView, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MatchParent, ViewGroup.LayoutParams.MatchParent));
         ApplySavedWallpaper();
         _root.AddView(scroll, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MatchParent, ViewGroup.LayoutParams.MatchParent));
@@ -223,7 +222,8 @@ public sealed class MainActivity : Activity
 
     private Button MakePillButton(string text, string background)
     {
-        var button = new Button(this) { Text = text, AllCaps = false, TextSize = 11 };
+        var button = new Button(this) { Text = text, TextSize = 11 };
+        button.SetAllCaps(false);
         button.SetTextColor(Color.ParseColor("#344B62"));
         button.Background = Rounded(background, 18);
         button.SetPadding(Dp(10), 0, Dp(10), 0);
@@ -243,7 +243,7 @@ public sealed class MainActivity : Activity
         panel.Background = RoundedGradient("#F4FAFFFF", "#E9F0F8", 30);
         panel.Elevation = Dp(18);
 
-        var heading = new LinearLayout(this) { Orientation = Orientation.Horizontal, Gravity = GravityFlags.CenterVertical };
+        var heading = new LinearLayout(this) { Orientation = Orientation.Horizontal };
         var title = MakeText("Центр управления", 23, "#20364D", true);
         heading.AddView(title, new LinearLayout.LayoutParams(0, Dp(44), 1));
         var close = MakePillButton("Готово", "#FFFFFF");
@@ -269,12 +269,12 @@ public sealed class MainActivity : Activity
         var volumeTitle = MakeText("Громкость", 15, "#344B62", true);
         volumeTitle.SetPadding(0, Dp(18), 0, Dp(4));
         panel.AddView(volumeTitle);
-        var audio = (Android.Media.AudioManager?)GetSystemService(AudioService);
-        var volume = new SeekBar(this) { Max = audio?.GetStreamMaxVolume(Android.Media.Stream.Music) ?? 15 };
-        volume.Progress = audio?.GetStreamVolume(Android.Media.Stream.Music) ?? 5;
+        var audio = GetSystemService(AudioService) as global::Android.Media.AudioManager;
+        var volume = new SeekBar(this) { Max = audio?.GetStreamMaxVolume(global::Android.Media.Stream.Music) ?? 15 };
+        volume.Progress = audio?.GetStreamVolume(global::Android.Media.Stream.Music) ?? 5;
         volume.ProgressChanged += (_, e) =>
         {
-            if (e.FromUser) audio?.SetStreamVolume(Android.Media.Stream.Music, e.Progress, Android.Media.VolumeNotificationFlags.RemoveSoundAndVibrate);
+            if (e.FromUser) audio?.SetStreamVolume(global::Android.Media.Stream.Music, e.Progress, global::Android.Media.VolumeNotificationFlags.RemoveSoundAndVibrate);
         };
         panel.AddView(volume, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MatchParent, Dp(42)));
 
@@ -293,25 +293,26 @@ public sealed class MainActivity : Activity
     {
         _lockClockPosition = GetSharedPreferences("tablet_os_settings", FileCreationMode.Private)?.GetInt("lock_clock_position", _lockClockPosition) ?? _lockClockPosition;
         var overlay = new FrameLayout(this) { Visibility = ViewStates.Gone, Clickable = true, Focusable = true };
-        var bg = new ImageView(this) { ScaleType = ImageView.ScaleType.CenterCrop };
+        var bg = new ImageView(this);
+        bg.SetScaleType(ImageView.ScaleType.CenterCrop);
         _lockBackground = bg;
         var savedWallpaper = GetSharedPreferences("tablet_os_settings", FileCreationMode.Private)?.GetString("lock_wallpaper_uri", null);
         if (!string.IsNullOrWhiteSpace(savedWallpaper))
         {
-            try { bg.SetImageURI(global::Android.Net.Uri.Parse(savedWallpaper)); } catch { }
+            try { bg.SetImageURI(global::global::Android.Net.Uri.Parse(savedWallpaper)); } catch { }
         }
         else
         {
-            bg.SetImageDrawable(new Android.Graphics.Drawables.GradientDrawable(
-                Android.Graphics.Drawables.GradientDrawable.Orientation.TlBr,
+            bg.SetImageDrawable(new global::Android.Graphics.Drawables.GradientDrawable(
+                global::Android.Graphics.Drawables.GradientDrawable.Orientation.TlBr,
                 new[] { Color.ParseColor("#183B57"), Color.ParseColor("#668DAA"), Color.ParseColor("#D8C9B7") }));
         }
         overlay.AddView(bg, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MatchParent, ViewGroup.LayoutParams.MatchParent));
 
         var shade = new View(this);
-        shade.SetBackground(new Android.Graphics.Drawables.GradientDrawable(
-            Android.Graphics.Drawables.GradientDrawable.Orientation.TopBottom,
-            new[] { Color.ParseColor("#55091A2A"), Color.ParseColor("#00101A28"), Color.ParseColor("#77091A2A") }));
+        shade.Background = new global::Android.Graphics.Drawables.GradientDrawable(
+            global::Android.Graphics.Drawables.GradientDrawable.Orientation.TopBottom,
+            new[] { Color.ParseColor("#55091A2A").ToArgb(), Color.ParseColor("#00101A28").ToArgb(), Color.ParseColor("#77091A2A").ToArgb() });
         overlay.AddView(shade, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MatchParent, ViewGroup.LayoutParams.MatchParent));
 
         var clock = new TextView(this)
@@ -335,18 +336,19 @@ public sealed class MainActivity : Activity
         dateParams.TopMargin = Dp(_lockClockPosition == 0 ? 207 : 313);
         overlay.AddView(date, dateParams);
 
-        var foreground = new ImageView(this) { ScaleType = ImageView.ScaleType.FitXY };
+        var foreground = new ImageView(this);
+        foreground.SetScaleType(ImageView.ScaleType.FitXy);
         _lockForeground = foreground;
         var savedForeground = GetSharedPreferences("tablet_os_settings", FileCreationMode.Private)?.GetString("lock_foreground_uri", null);
         if (!string.IsNullOrWhiteSpace(savedForeground))
         {
-            try { foreground.SetImageURI(global::Android.Net.Uri.Parse(savedForeground)); } catch { }
+            try { foreground.SetImageURI(global::global::Android.Net.Uri.Parse(savedForeground)); } catch { }
         }
         // Put a transparent PNG cut-out here: it is layered above the clock to create
         // the iOS-style depth effect without pretending Android can segment any photo.
         overlay.AddView(foreground, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MatchParent, ViewGroup.LayoutParams.MatchParent));
 
-        var bottom = new LinearLayout(this) { Orientation = Orientation.Vertical, Gravity = GravityFlags.Center };
+        var bottom = new LinearLayout(this) { Orientation = Orientation.Vertical };
         bottom.SetPadding(Dp(20), Dp(12), Dp(20), Dp(28));
         var notif = MakeText("Уведомления появятся здесь", 13, "#FFFFFFFF", false);
         notif.Gravity = GravityFlags.Center;
@@ -360,9 +362,9 @@ public sealed class MainActivity : Activity
         unlock.Click += (_, _) => CloseLockScreen();
         bottom.AddView(unlock, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MatchParent, Dp(54)));
 
-        var customize = new LinearLayout(this) { Orientation = Orientation.Vertical, Gravity = GravityFlags.Center };
-        var customizeTop = new LinearLayout(this) { Orientation = Orientation.Horizontal, Gravity = GravityFlags.Center };
-        var customizeBottom = new LinearLayout(this) { Orientation = Orientation.Horizontal, Gravity = GravityFlags.Center };
+        var customize = new LinearLayout(this) { Orientation = Orientation.Vertical };
+        var customizeTop = new LinearLayout(this) { Orientation = Orientation.Horizontal };
+        var customizeBottom = new LinearLayout(this) { Orientation = Orientation.Horizontal };
         var wallpaper = MakePillButton("Обои", "#55FFFFFF");
         wallpaper.Click += (_, _) => ChooseLockWallpaper();
         var depth = MakePillButton("Слой глубины", "#55FFFFFF");
@@ -383,7 +385,7 @@ public sealed class MainActivity : Activity
         customizeBottom.AddView(style, new LinearLayout.LayoutParams(0, Dp(42), 1));
         customizeBottom.AddView(font, new LinearLayout.LayoutParams(0, Dp(42), 1));
         customizeBottom.AddView(color, new LinearLayout.LayoutParams(0, Dp(42), 1));
-        var customizeThird = new LinearLayout(this) { Orientation = Orientation.Horizontal, Gravity = GravityFlags.Center };
+        var customizeThird = new LinearLayout(this) { Orientation = Orientation.Horizontal };
         customizeThird.AddView(size, new LinearLayout.LayoutParams(0, Dp(42), 1));
         customize.AddView(customizeTop);
         customize.AddView(customizeBottom);
@@ -426,7 +428,7 @@ public sealed class MainActivity : Activity
         _lockScreen.Alpha = 0f;
         _lockScreen.TranslationY = Dp(35);
         _lockScreen.Animate()?.Alpha(1f)?.TranslationY(0)?.SetDuration(420)
-            ?.SetInterpolator(new Android.Views.Animations.DecelerateInterpolator(1.7f))?.Start();
+            ?.SetInterpolator(new global::Android.Views.Animations.DecelerateInterpolator(1.7f))?.Start();
     }
 
     private void CloseLockScreen()
@@ -456,7 +458,7 @@ public sealed class MainActivity : Activity
         StartActivityForResult(picker, LockForegroundRequestCode);
     }
 
-    private void ApplyLockWallpaper(global::Android.Net.Uri uri)
+    private void ApplyLockWallpaper(global::global::Android.Net.Uri uri)
     {
         try
         {
@@ -468,7 +470,7 @@ public sealed class MainActivity : Activity
         catch { Toast.MakeText(this, "Не удалось применить обои", ToastLength.Short)?.Show(); }
     }
 
-    private void ApplyLockForeground(global::Android.Net.Uri uri)
+    private void ApplyLockForeground(global::global::Android.Net.Uri uri)
     {
         try
         {
@@ -708,7 +710,7 @@ public sealed class MainActivity : Activity
         panel.Background = RoundedGradient("#F7FBFFFF", "#E7EEF7", 30);
         panel.Elevation = Dp(20);
 
-        var header = new LinearLayout(this) { Orientation = Orientation.Horizontal, Gravity = GravityFlags.CenterVertical };
+        var header = new LinearLayout(this) { Orientation = Orientation.Horizontal };
         var title = MakeText("Центр уведомлений", 23, "#20364D", true);
         header.AddView(title, new LinearLayout.LayoutParams(0, Dp(46), 1));
         var access = MakePillButton("Доступ", "#FFFFFF");
@@ -745,7 +747,7 @@ public sealed class MainActivity : Activity
                 var app = MakeText(item.App, 11, "#718297", true);
                 var heading = MakeText(item.Title, 15, "#20364D", true);
                 var body = MakeText(item.Text, 13, "#526579", false);
-                body.MaxLines = 4;
+                body.SetMaxLines(4);
                 card.AddView(app);
                 card.AddView(heading);
                 card.AddView(body);
@@ -798,10 +800,10 @@ public sealed class MainActivity : Activity
         if (ev is not null)
         {
             if (ev.Action == MotionEventActions.Down)
-                _gestureStartY = ev.Y;
+                _gestureStartY = ev.GetY();
             else if (ev.Action == MotionEventActions.Up && _gestureStartY >= 0)
             {
-                var delta = ev.RawY - _gestureStartY;
+                var delta = ev.GetRawY() - _gestureStartY;
                 if (_gestureStartY <= Dp(42) && delta >= Dp(90) &&
                     _notificationCenter is not null && _notificationCenter.Visibility != ViewStates.Visible)
                 {
@@ -817,7 +819,7 @@ public sealed class MainActivity : Activity
 
     private void AddControlTile(LinearLayout row, string title, string subtitle, Action action)
     {
-        var tile = new LinearLayout(this) { Orientation = Orientation.Vertical, Gravity = GravityFlags.CenterVertical, Clickable = true, Focusable = true };
+        var tile = new LinearLayout(this) { Orientation = Orientation.Vertical, Clickable = true, Focusable = true };
         tile.SetPadding(Dp(16), Dp(8), Dp(16), Dp(8));
         tile.Background = Rounded("#FFFFFF", 20);
         var titleView = MakeText(title, 15, "#20364D", true);
@@ -856,7 +858,7 @@ public sealed class MainActivity : Activity
     private void OpenSystemPanel(string action)
     {
         try { StartActivity(new Intent(action)); }
-        catch { StartActivity(new Intent(Android.Provider.Settings.ActionSettings)); }
+        catch { StartActivity(new Intent(global::Android.Provider.Settings.ActionSettings)); }
     }
 
     private void ChooseWallpaper()
@@ -871,11 +873,11 @@ public sealed class MainActivity : Activity
     {
         var saved = GetSharedPreferences("tablet_os_settings", FileCreationMode.Private)?.GetString("wallpaper_uri", null);
         if (string.IsNullOrWhiteSpace(saved) || _wallpaperView is null) return;
-        try { _wallpaperView.SetImageURI(global::Android.Net.Uri.Parse(saved)); }
+        try { _wallpaperView.SetImageURI(global::global::Android.Net.Uri.Parse(saved)); }
         catch { }
     }
 
-    private void ApplyWallpaper(global::Android.Net.Uri uri)
+    private void ApplyWallpaper(global::global::Android.Net.Uri uri)
     {
         try
         {
@@ -944,8 +946,7 @@ public sealed class MainActivity : Activity
         {
             var row = new LinearLayout(this)
             {
-                Orientation = Orientation.Horizontal,
-                Gravity = GravityFlags.Top
+                Orientation = Orientation.Horizontal
             };
             for (var col = 0; col < columns; col++)
             {
@@ -970,15 +971,17 @@ public sealed class MainActivity : Activity
             ?.GetString("app_background:" + app.PackageName, null);
         if (!string.IsNullOrWhiteSpace(saved))
         {
-            var background = new ImageView(this) { ScaleType = ImageView.ScaleType.CenterCrop };
-            try { background.SetImageURI(global::Android.Net.Uri.Parse(saved)); } catch { }
+            var background = new ImageView(this);
+            background.SetScaleType(ImageView.ScaleType.CenterCrop);
+            try { background.SetImageURI(global::global::Android.Net.Uri.Parse(saved)); } catch { }
             background.Alpha = 0.82f;
             tile.AddView(background, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MatchParent, ViewGroup.LayoutParams.MatchParent));
         }
 
-        var content = new LinearLayout(this) { Orientation = Orientation.Vertical, Gravity = GravityFlags.Center };
+        var content = new LinearLayout(this) { Orientation = Orientation.Vertical };
         content.SetPadding(Dp(3), Dp(7), Dp(3), Dp(5));
-        var iconFrame = new FrameLayout(this) { ForegroundGravity = GravityFlags.Center };
+        var iconFrame = new FrameLayout(this);
+        iconFrame.SetForegroundGravity(GravityFlags.Center);
         var icon = new ImageView(this);
         icon.SetImageDrawable(app.Icon);
         icon.SetScaleType(ImageView.ScaleType.FitCenter);
@@ -986,8 +989,8 @@ public sealed class MainActivity : Activity
 
         var label = MakeText(app.Label, 11, "#26384A", true);
         label.Gravity = GravityFlags.Center;
-        label.MaxLines = 2;
-        label.Ellipsize = Android.Text.TextUtils.TruncateAt.End;
+        label.SetMaxLines(2);
+        label.Ellipsize = global::Android.Text.TextUtils.TruncateAt.End;
         label.SetPadding(Dp(2), Dp(4), Dp(2), 0);
 
         content.AddView(iconFrame, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MatchParent, Dp(59)));
@@ -1007,7 +1010,7 @@ public sealed class MainActivity : Activity
         StartActivityForResult(picker, AppBackgroundRequestCode);
     }
 
-    private void ApplyAppBackground(string packageName, global::Android.Net.Uri uri)
+    private void ApplyAppBackground(string packageName, global::global::Android.Net.Uri uri)
     {
         try
         {
@@ -1026,7 +1029,7 @@ public sealed class MainActivity : Activity
 
     private LinearLayout BuildDock()
     {
-        var dock = new LinearLayout(this) { Orientation = Orientation.Horizontal, Gravity = GravityFlags.Center, ClipToPadding = false, Elevation = Dp(16) };
+        var dock = new LinearLayout(this) { Orientation = Orientation.Horizontal, ClipToPadding = false, Elevation = Dp(16) };
         dock.SetPadding(Dp(10), Dp(9), Dp(10), Dp(9));
         var glass = new GradientDrawable();
         glass.SetColor(Color.ParseColor("#DDFBFDFF"));
@@ -1055,7 +1058,8 @@ public sealed class MainActivity : Activity
         }
         foreach (var app in pinned)
         {
-            var item = new FrameLayout(this) { Clickable = true, Focusable = true, ForegroundGravity = GravityFlags.Center };
+            var item = new FrameLayout(this) { Clickable = true, Focusable = true };
+            item.SetForegroundGravity(GravityFlags.Center);
             item.Background = Rounded("#26FFFFFF", 18);
             var image = new ImageView(this);
             image.SetImageDrawable(app.Icon);
@@ -1126,7 +1130,7 @@ public sealed class MainActivity : Activity
     }
 
     // Animate the home screen outward from the icon that launched the app.
-    // This is a lightweight Genie-inspired return transition rendered by Android.
+    // This is a lightweight Genie-inspired return transition rendered by global::Android.
     private void PlayGenieReturnAnimation()
     {
         _returnAnimationPending = false;
@@ -1143,7 +1147,7 @@ public sealed class MainActivity : Activity
             ?.ScaleY(1f)
             ?.Alpha(1f)
             ?.SetDuration(460)
-            ?.SetInterpolator(new Android.Views.Animations.DecelerateInterpolator(2.2f))
+            ?.SetInterpolator(new global::Android.Views.Animations.DecelerateInterpolator(2.2f))
             ?.Start();
     }
 
@@ -1203,13 +1207,13 @@ public sealed class MainActivity : Activity
         base.OnActivityResult(requestCode, resultCode, data);
         if (requestCode == HomeRoleRequestCode && !IsDefaultLauncher())
             Toast.MakeText(this, "Tablet OS пока не выбран как главный экран", ToastLength.Short)?.Show();
-        if (requestCode == WallpaperRequestCode && resultCode == Result.Ok && data?.Data is global::Android.Net.Uri selectedUri)
+        if (requestCode == WallpaperRequestCode && resultCode == Result.Ok && data?.Data is global::global::Android.Net.Uri selectedUri)
             ApplyWallpaper(selectedUri);
-        if (requestCode == AppBackgroundRequestCode && resultCode == Result.Ok && data?.Data is global::Android.Net.Uri appUri && !string.IsNullOrWhiteSpace(_pendingBackgroundPackage))
+        if (requestCode == AppBackgroundRequestCode && resultCode == Result.Ok && data?.Data is global::global::Android.Net.Uri appUri && !string.IsNullOrWhiteSpace(_pendingBackgroundPackage))
             ApplyAppBackground(_pendingBackgroundPackage, appUri);
-        if (requestCode == LockWallpaperRequestCode && resultCode == Result.Ok && data?.Data is global::Android.Net.Uri lockUri)
+        if (requestCode == LockWallpaperRequestCode && resultCode == Result.Ok && data?.Data is global::global::Android.Net.Uri lockUri)
             ApplyLockWallpaper(lockUri);
-        if (requestCode == LockForegroundRequestCode && resultCode == Result.Ok && data?.Data is global::Android.Net.Uri foregroundUri)
+        if (requestCode == LockForegroundRequestCode && resultCode == Result.Ok && data?.Data is global::global::Android.Net.Uri foregroundUri)
             ApplyLockForeground(foregroundUri);
     }
 
@@ -1239,7 +1243,7 @@ public sealed class MainActivity : Activity
     {
         var shape = new GradientDrawable(
             GradientDrawable.Orientation.TlBr,
-            new[] { Color.ParseColor(first), Color.ParseColor(second) });
+            new[] { Color.ParseColor(first).ToArgb(), Color.ParseColor(second).ToArgb() });
         shape.SetCornerRadius(Dp(radius));
         return shape;
     }
