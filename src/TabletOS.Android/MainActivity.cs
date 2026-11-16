@@ -213,7 +213,7 @@ public sealed class MainActivity : Activity
 
         var panel = new LinearLayout(this) { Orientation = Orientation.Vertical };
         panel.SetPadding(Dp(22), Dp(24), Dp(22), Dp(24));
-        panel.Background = RoundedGradient("#F4FAFFFF", "#E9F0F8", 0);
+        panel.Background = RoundedGradient("#F4FAFFFF", "#E9F0F8", 30);
         panel.Elevation = Dp(18);
 
         var heading = new LinearLayout(this) { Orientation = Orientation.Horizontal, Gravity = GravityFlags.CenterVertical };
@@ -228,13 +228,16 @@ public sealed class MainActivity : Activity
         now.SetPadding(0, 0, 0, Dp(15));
         panel.AddView(now);
 
-        var tiles = new GridLayout(this) { ColumnCount = 2, RowCount = 2 };
-        tiles.UseDefaultMargins = false;
-        AddControlTile(tiles, "Wi-Fi", "Подключения", () => OpenSystemPanel("android.settings.panel.action.WIFI"));
-        AddControlTile(tiles, "Bluetooth", "Устройства", () => OpenSystemPanel("android.settings.panel.action.BLUETOOTH"));
-        AddControlTile(tiles, "Режим полёта", "Системные настройки", () => OpenSystemPanel("android.settings.AIRPLANE_MODE_SETTINGS"));
-        AddControlTile(tiles, "Настройки", "Все параметры", () => OpenSystemPanel("android.settings.SETTINGS"));
-        panel.AddView(tiles, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MatchParent, Dp(168)));
+        var tiles = new LinearLayout(this) { Orientation = Orientation.Vertical };
+        var tileRow1 = new LinearLayout(this) { Orientation = Orientation.Horizontal };
+        var tileRow2 = new LinearLayout(this) { Orientation = Orientation.Horizontal };
+        AddControlTile(tileRow1, "Wi-Fi", "Подключения", () => OpenSystemPanel("android.settings.panel.action.WIFI"));
+        AddControlTile(tileRow1, "Bluetooth", "Устройства", () => OpenSystemPanel("android.settings.panel.action.BLUETOOTH"));
+        AddControlTile(tileRow2, "Режим полёта", "Системные настройки", () => OpenSystemPanel("android.settings.AIRPLANE_MODE_SETTINGS"));
+        AddControlTile(tileRow2, "Настройки", "Все параметры", () => OpenSystemPanel("android.settings.SETTINGS"));
+        tiles.AddView(tileRow1, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MatchParent, Dp(78)));
+        tiles.AddView(tileRow2, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MatchParent, Dp(78)));
+        panel.AddView(tiles, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MatchParent, Dp(156)));
 
         var volumeTitle = MakeText("Громкость", 15, "#344B62", true);
         volumeTitle.SetPadding(0, Dp(18), 0, Dp(4));
@@ -297,7 +300,7 @@ public sealed class MainActivity : Activity
         return overlay;
     }
 
-    private void AddControlTile(GridLayout grid, string title, string subtitle, Action action)
+    private void AddControlTile(LinearLayout row, string title, string subtitle, Action action)
     {
         var tile = new LinearLayout(this) { Orientation = Orientation.Vertical, Gravity = GravityFlags.CenterVertical, Clickable = true, Focusable = true };
         tile.SetPadding(Dp(16), Dp(8), Dp(16), Dp(8));
@@ -307,12 +310,9 @@ public sealed class MainActivity : Activity
         tile.AddView(titleView);
         tile.AddView(subView);
         tile.Click += (_, _) => action();
-        var lp = new GridLayout.LayoutParams();
-        lp.Width = 0;
-        lp.Height = Dp(72);
-        lp.ColumnSpec = GridLayout.Spec.Invoke(0, 1f);
+        var lp = new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MatchParent, 1);
         lp.SetMargins(Dp(3), Dp(3), Dp(3), Dp(3));
-        grid.AddView(tile, lp);
+        row.AddView(tile, lp);
     }
 
     private void OpenControlCenter()
