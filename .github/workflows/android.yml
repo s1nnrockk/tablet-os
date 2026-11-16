@@ -33,12 +33,16 @@ jobs:
         run: sdkmanager "ndk;27.2.12479018"
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-linux-android,armv7-linux-androideabi,x86_64-linux-android
       - name: Install cargo-ndk
         run: cargo install cargo-ndk --locked
       - name: Build Rust native core
         run: |
           cd native/tabletos-core
-          ANDROID_NDK_HOME="$ANDROID_SDK_ROOT/ndk/27.2.12479018" cargo ndk -t arm64-v8a -t armeabi-v7a -t x86_64 -o ../../src/TabletOS.Android/JniLibs build --release
+          export ANDROID_NDK_HOME="$ANDROID_SDK_ROOT/ndk/27.2.12479018"
+          export ANDROID_NDK_ROOT="$ANDROID_NDK_HOME"
+          cargo ndk -t arm64-v8a -t armeabi-v7a -t x86_64 -o ../../src/TabletOS.Android/JniLibs build --release
       - name: Install Android workload
         run: dotnet workload install android
       - name: Build APK
