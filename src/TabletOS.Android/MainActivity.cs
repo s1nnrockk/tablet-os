@@ -305,7 +305,7 @@ public sealed class MainActivity : Activity
         {
             bg.SetImageDrawable(new global::Android.Graphics.Drawables.GradientDrawable(
                 global::Android.Graphics.Drawables.GradientDrawable.Orientation.TlBr,
-                new[] { Color.ParseColor("#183B57"), Color.ParseColor("#668DAA"), Color.ParseColor("#D8C9B7") }));
+                new[] { Color.ParseColor("#183B57").ToArgb(), Color.ParseColor("#668DAA").ToArgb(), Color.ParseColor("#D8C9B7").ToArgb() }));
         }
         overlay.AddView(bg, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MatchParent, ViewGroup.LayoutParams.MatchParent));
 
@@ -803,7 +803,7 @@ public sealed class MainActivity : Activity
                 _gestureStartY = ev.GetY();
             else if (ev.Action == MotionEventActions.Up && _gestureStartY >= 0)
             {
-                var delta = ev.GetRawY() - _gestureStartY;
+                var delta = ev.GetY() - _gestureStartY;
                 if (_gestureStartY <= Dp(42) && delta >= Dp(90) &&
                     _notificationCenter is not null && _notificationCenter.Visibility != ViewStates.Visible)
                 {
@@ -1029,7 +1029,8 @@ public sealed class MainActivity : Activity
 
     private LinearLayout BuildDock()
     {
-        var dock = new LinearLayout(this) { Orientation = Orientation.Horizontal, ClipToPadding = false, Elevation = Dp(16) };
+        var dock = new LinearLayout(this) { Orientation = Orientation.Horizontal, Elevation = Dp(16) };
+        dock.SetClipToPadding(false);
         dock.SetPadding(Dp(10), Dp(9), Dp(10), Dp(9));
         var glass = new GradientDrawable();
         glass.SetColor(Color.ParseColor("#DDFBFDFF"));
