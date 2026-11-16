@@ -16,6 +16,7 @@ namespace TabletOS.Android;
 public sealed class MainActivity : Activity
 {
     private const int HomeRoleRequestCode = 4101;
+    private const int WallpaperRequestCode = 4102;
     private const int AppColumns = 5;
 
     private RoleManager? _roleManager;
@@ -27,6 +28,8 @@ public sealed class MainActivity : Activity
     private EditText _search = null!;
     private Button _setLauncherButton = null!;
     private FrameLayout _root = null!;
+    private FrameLayout _controlCenter = null!;
+    private ImageView _wallpaperView = null!;
     private bool _returnAnimationPending;
     private float _returnPivotX;
     private float _returnPivotY;
@@ -66,9 +69,7 @@ public sealed class MainActivity : Activity
             FillViewport = true,
             OverScrollMode = OverScrollMode.Never
         };
-        scroll.SetBackground(new GradientDrawable(
-            GradientDrawable.Orientation.TlBr,
-            new[] { Color.ParseColor("#EAF1F8"), Color.ParseColor("#F7EEE8"), Color.ParseColor("#F4F3EE") }));
+        scroll.SetBackgroundColor(Color.Transparent);
 
         var page = new LinearLayout(this) { Orientation = Orientation.Vertical };
         page.SetPadding(Dp(26), Dp(22), Dp(26), Dp(124));
@@ -81,10 +82,16 @@ public sealed class MainActivity : Activity
 
         var brand = MakeText("TABLET OS", 13, "#526579", true);
         var topSpacer = new Space(this);
-        var dateTop = MakeText("", 13, "#657487", false);
-        topLine.AddView(brand, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WrapContent, Dp(28)));
+        var wallpaperButton = MakePillButton("Обои", "#FFFFFF");
+        wallpaperButton.Click += (_, _) => ChooseWallpaper();
+        var centerButton = MakePillButton("⌄  Центр", "#E7F0FA");
+        centerButton.Click += (_, _) => OpenControlCenter();
+        var dateTop = MakeText("", 12, "#657487", false);
+        topLine.AddView(brand, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WrapContent, Dp(34)));
         topLine.AddView(topSpacer, new LinearLayout.LayoutParams(0, 1, 1));
-        topLine.AddView(dateTop, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WrapContent, Dp(28)));
+        topLine.AddView(wallpaperButton, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WrapContent, Dp(34)));
+        topLine.AddView(centerButton, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WrapContent, Dp(34)));
+        topLine.AddView(dateTop, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WrapContent, Dp(34)));
         page.AddView(topLine);
 
         var hero = new LinearLayout(this) { Orientation = Orientation.Vertical };
@@ -171,15 +178,201 @@ public sealed class MainActivity : Activity
 
         scroll.AddView(page);
         _root = new FrameLayout(this);
+        _wallpaperView = new ImageView(this) { ScaleType = ImageView.ScaleType.CenterCrop };
+        _root.AddView(_wallpaperView, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MatchParent, ViewGroup.LayoutParams.MatchParent));
+        ApplySavedWallpaper();
         _root.AddView(scroll, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MatchParent, ViewGroup.LayoutParams.MatchParent));
         _dock = BuildDock();
         var dockParams = new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MatchParent, Dp(82), GravityFlags.Bottom | GravityFlags.CenterHorizontal);
         dockParams.SetMargins(Dp(22), 0, Dp(22), Dp(16));
         _root.AddView(_dock, dockParams);
+        _controlCenter = BuildControlCenter();
+        _root.AddView(_controlCenter, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MatchParent, ViewGroup.LayoutParams.MatchParent));
         SetContentView(_root);
         UpdateClock();
 
         dateTop.Text = DateTime.Now.ToString("dddd, d MMMM", CultureInfo.GetCultureInfo("ru-RU"));
+    }
+
+    private Button MakePillButton(string text, string background)
+    {
+        var button = new Button(this) { Text = text, AllCaps = false, TextSize = 11 };
+        button.SetTextColor(Color.ParseColor("#344B62"));
+        button.Background = Rounded(background, 18);
+        button.SetPadding(Dp(10), 0, Dp(10), 0);
+        return button;
+    }
+
+    private FrameLayout BuildControlCenter()
+    {
+        var overlay = new FrameLayout(this) { Visibility = ViewStates.Gone, Clickable = true, Focusable = true };
+        var scrim = new View(this);
+        scrim.SetBackgroundColor(Color.ParseColor("#660D1B2A"));
+        scrim.Click += (_, _) => CloseControlCenter();
+        overlay.AddView(scrim, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MatchParent, ViewGroup.LayoutParams.MatchParent));
+
+        var panel = new LinearLayout(this) { Orientation = Orientation.Vertical };
+        panel.SetPadding(Dp(22), Dp(24), Dp(22), Dp(24));
+        panel.Background = RoundedGradient("#F4FAFFFF", "#E9F0F8", 0);
+        panel.Elevation = Dp(18);
+
+        var heading = new LinearLayout(this) { Orientation = Orientation.Horizontal, Gravity = GravityFlags.CenterVertical };
+        var title = MakeText("Центр управления", 23, "#20364D", true);
+        heading.AddView(title, new LinearLayout.LayoutParams(0, Dp(44), 1));
+        var close = MakePillButton("Готово", "#FFFFFF");
+        close.Click += (_, _) => CloseControlCenter();
+        heading.AddView(close, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WrapContent, Dp(36)));
+        panel.AddView(heading);
+
+        var now = MakeText(DateTime.Now.ToString("dddd, d MMMM · HH:mm", CultureInfo.GetCultureInfo("ru-RU")), 13, "#718297", false);
+        now.SetPadding(0, 0, 0, Dp(15));
+        panel.AddView(now);
+
+        var tiles = new GridLayout(this) { ColumnCount = 2, RowCount = 2 };
+        tiles.UseDefaultMargins = false;
+        AddControlTile(tiles, "Wi-Fi", "Подключения", () => OpenSystemPanel("android.settings.panel.action.WIFI"));
+        AddControlTile(tiles, "Bluetooth", "Устройства", () => OpenSystemPanel("android.settings.panel.action.BLUETOOTH"));
+        AddControlTile(tiles, "Режим полёта", "Системные настройки", () => OpenSystemPanel("android.settings.AIRPLANE_MODE_SETTINGS"));
+        AddControlTile(tiles, "Настройки", "Все параметры", () => OpenSystemPanel("android.settings.SETTINGS"));
+        panel.AddView(tiles, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MatchParent, Dp(168)));
+
+        var volumeTitle = MakeText("Громкость", 15, "#344B62", true);
+        volumeTitle.SetPadding(0, Dp(18), 0, Dp(4));
+        panel.AddView(volumeTitle);
+        var audio = (Android.Media.AudioManager?)GetSystemService(AudioService);
+        var volume = new SeekBar(this) { Max = audio?.GetStreamMaxVolume(Android.Media.Stream.Music) ?? 15 };
+        volume.Progress = audio?.GetStreamVolume(Android.Media.Stream.Music) ?? 5;
+        volume.ProgressChanged += (_, e) =>
+        {
+            if (e.FromUser) audio?.SetStreamVolume(Android.Media.Stream.Music, e.Progress, Android.Media.VolumeNotificationFlags.RemoveSoundAndVibrate);
+        };
+        panel.AddView(volume, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MatchParent, Dp(42)));
+
+        var notificationsHeading = new LinearLayout(this) { Orientation = Orientation.Horizontal, Gravity = GravityFlags.CenterVertical };
+        var notificationsTitle = MakeText("Уведомления", 18, "#20364D", true);
+        notificationsHeading.AddView(notificationsTitle, new LinearLayout.LayoutParams(0, Dp(48), 1));
+        var permission = MakePillButton("Разрешить доступ", "#FFFFFF");
+        permission.Click += (_, _) =>
+        {
+            try { StartActivity(new Intent("android.settings.ACTION_NOTIFICATION_LISTENER_SETTINGS")); }
+            catch { Toast.MakeText(this, "Откройте доступ к уведомлениям в настройках Android", ToastLength.Long)?.Show(); }
+        };
+        notificationsHeading.AddView(permission, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WrapContent, Dp(34)));
+        panel.AddView(notificationsHeading);
+
+        var notificationList = new LinearLayout(this) { Orientation = Orientation.Vertical };
+        var notifications = NotificationCaptureService.GetRecent();
+        if (notifications.Count == 0)
+        {
+            var empty = MakeText("Пока нет новых уведомлений", 13, "#718297", false);
+            empty.SetPadding(0, Dp(8), 0, Dp(8));
+            notificationList.AddView(empty);
+        }
+        else
+        {
+            foreach (var item in notifications.Take(5))
+            {
+                var card = new LinearLayout(this) { Orientation = Orientation.Vertical };
+                card.SetPadding(Dp(14), Dp(10), Dp(14), Dp(10));
+                card.Background = Rounded("#DFFFFFFF", 18);
+                var appName = MakeText(item.App, 11, "#718297", true);
+                var messageTitle = MakeText(item.Title, 14, "#20364D", true);
+                var messageText = MakeText(item.Text, 12, "#526579", false);
+                messageText.MaxLines = 3;
+                card.AddView(appName);
+                card.AddView(messageTitle);
+                card.AddView(messageText);
+                var cardParams = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MatchParent, ViewGroup.LayoutParams.WrapContent);
+                cardParams.BottomMargin = Dp(8);
+                notificationList.AddView(card, cardParams);
+            }
+        }
+        var notificationScroll = new ScrollView(this) { FillViewport = false };
+        notificationScroll.AddView(notificationList);
+        panel.AddView(notificationScroll, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MatchParent, 0, 1));
+
+        var panelParams = new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MatchParent, (int)(Resources!.DisplayMetrics!.HeightPixels * 0.88f), GravityFlags.Top);
+        panelParams.SetMargins(Dp(8), Dp(8), Dp(8), 0);
+        overlay.AddView(panel, panelParams);
+        return overlay;
+    }
+
+    private void AddControlTile(GridLayout grid, string title, string subtitle, Action action)
+    {
+        var tile = new LinearLayout(this) { Orientation = Orientation.Vertical, Gravity = GravityFlags.CenterVertical, Clickable = true, Focusable = true };
+        tile.SetPadding(Dp(16), Dp(8), Dp(16), Dp(8));
+        tile.Background = Rounded("#FFFFFF", 20);
+        var titleView = MakeText(title, 15, "#20364D", true);
+        var subView = MakeText(subtitle, 10, "#8190A0", false);
+        tile.AddView(titleView);
+        tile.AddView(subView);
+        tile.Click += (_, _) => action();
+        var lp = new GridLayout.LayoutParams();
+        lp.Width = 0;
+        lp.Height = Dp(72);
+        lp.ColumnSpec = GridLayout.Spec.Invoke(0, 1f);
+        lp.SetMargins(Dp(3), Dp(3), Dp(3), Dp(3));
+        grid.AddView(tile, lp);
+    }
+
+    private void OpenControlCenter()
+    {
+        if (_controlCenter is null) return;
+        _controlCenter.RemoveAllViews();
+        var fresh = BuildControlCenter();
+        _root.RemoveView(_controlCenter);
+        _controlCenter = fresh;
+        _root.AddView(_controlCenter, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MatchParent, ViewGroup.LayoutParams.MatchParent));
+        _controlCenter.Visibility = ViewStates.Visible;
+        _controlCenter.Alpha = 0f;
+        _controlCenter.TranslationY = -Dp(35);
+        _controlCenter.Animate()?.Alpha(1f)?.TranslationY(0)?.SetDuration(240)?.Start();
+    }
+
+    private void CloseControlCenter()
+    {
+        if (_controlCenter is null) return;
+        _controlCenter.Animate()?.Alpha(0f)?.TranslationY(-Dp(25))?.SetDuration(180)?.WithEndAction(new Java.Lang.Runnable(() =>
+        {
+            if (_controlCenter is not null) _controlCenter.Visibility = ViewStates.Gone;
+        }))?.Start();
+    }
+
+    private void OpenSystemPanel(string action)
+    {
+        try { StartActivity(new Intent(action)); }
+        catch { StartActivity(new Intent(Android.Provider.Settings.ActionSettings)); }
+    }
+
+    private void ChooseWallpaper()
+    {
+        var intent = new Intent(Intent.ActionOpenDocument);
+        intent.SetType("image/*");
+        intent.AddCategory(Intent.CategoryOpenable);
+        StartActivityForResult(intent, WallpaperRequestCode);
+    }
+
+    private void ApplySavedWallpaper()
+    {
+        var saved = GetSharedPreferences("tablet_os_settings", FileCreationMode.Private)?.GetString("wallpaper_uri", null);
+        if (string.IsNullOrWhiteSpace(saved) || _wallpaperView is null) return;
+        try { _wallpaperView.SetImageURI(Android.Net.Uri.Parse(saved)); }
+        catch { }
+    }
+
+    private void ApplyWallpaper(Android.Net.Uri uri)
+    {
+        try
+        {
+            ContentResolver?.TakePersistableUriPermission(uri, ActivityFlags.GrantReadUriPermission);
+            GetSharedPreferences("tablet_os_settings", FileCreationMode.Private)?.Edit()?.PutString("wallpaper_uri", uri.ToString())?.Apply();
+            _wallpaperView.SetImageURI(uri);
+            Toast.MakeText(this, "Обои сохранены", ToastLength.Short)?.Show();
+        }
+        catch
+        {
+            Toast.MakeText(this, "Не удалось применить это изображение", ToastLength.Short)?.Show();
+        }
     }
 
     private void LoadApps()
@@ -465,6 +658,8 @@ public sealed class MainActivity : Activity
         base.OnActivityResult(requestCode, resultCode, data);
         if (requestCode == HomeRoleRequestCode && !IsDefaultLauncher())
             Toast.MakeText(this, "Tablet OS пока не выбран как главный экран", ToastLength.Short)?.Show();
+        if (requestCode == WallpaperRequestCode && resultCode == Result.Ok && data?.Data is Android.Net.Uri selectedUri)
+            ApplyWallpaper(selectedUri);
     }
 
     private TextView MakeText(string text, float size, string color, bool bold)
