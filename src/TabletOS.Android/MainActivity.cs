@@ -39,6 +39,9 @@ public sealed class MainActivity : Activity
     private TextView? _lockClock;
     private TextView? _lockDate;
     private int _lockClockPosition = 0;
+    private int _lockClockStyle = 0;
+    private int _lockClockFont = 0;
+    private int _lockClockColor = 0;
     private float _lockTouchX;
     private float _lockTouchY;
     private string? _pendingBackgroundPackage;
@@ -318,8 +321,8 @@ public sealed class MainActivity : Activity
             Typeface = Typeface.Create("sans-serif-light", TypefaceStyle.Normal),
             LetterSpacing = -0.035f,
         };
-        clock.SetTextColor(Color.White);
         _lockClock = clock;
+        ApplyLockClockPreferences(clock);
         var clockParams = new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MatchParent, Dp(116), GravityFlags.Top);
         clockParams.TopMargin = Dp(_lockClockPosition == 0 ? 104 : 210);
         overlay.AddView(clock, clockParams);
@@ -356,17 +359,30 @@ public sealed class MainActivity : Activity
         unlock.Click += (_, _) => CloseLockScreen();
         bottom.AddView(unlock, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MatchParent, Dp(54)));
 
-        var customize = new LinearLayout(this) { Orientation = Orientation.Horizontal, Gravity = GravityFlags.Center };
+        var customize = new LinearLayout(this) { Orientation = Orientation.Vertical, Gravity = GravityFlags.Center };
+        var customizeTop = new LinearLayout(this) { Orientation = Orientation.Horizontal, Gravity = GravityFlags.Center };
+        var customizeBottom = new LinearLayout(this) { Orientation = Orientation.Horizontal, Gravity = GravityFlags.Center };
         var wallpaper = MakePillButton("Обои", "#55FFFFFF");
         wallpaper.Click += (_, _) => ChooseLockWallpaper();
-        var depth = MakePillButton("Слой переднего плана", "#55FFFFFF");
+        var depth = MakePillButton("Слой глубины", "#55FFFFFF");
         depth.Click += (_, _) => ChooseLockForeground();
-        var position = MakePillButton("Положение часов", "#55FFFFFF");
+        var position = MakePillButton("Положение", "#55FFFFFF");
         position.Click += (_, _) => CycleLockClockPosition();
-        customize.AddView(wallpaper);
-        customize.AddView(depth);
-        customize.AddView(position);
-        bottom.AddView(customize, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MatchParent, Dp(48)));
+        var style = MakePillButton("Стиль часов", "#55FFFFFF");
+        style.Click += (_, _) => ChooseLockClockStyle();
+        var font = MakePillButton("Шрифт", "#55FFFFFF");
+        font.Click += (_, _) => ChooseLockClockFont();
+        var color = MakePillButton("Цвет", "#55FFFFFF");
+        color.Click += (_, _) => ChooseLockClockColor();
+        customizeTop.AddView(wallpaper, new LinearLayout.LayoutParams(0, Dp(42), 1));
+        customizeTop.AddView(depth, new LinearLayout.LayoutParams(0, Dp(42), 1));
+        customizeTop.AddView(position, new LinearLayout.LayoutParams(0, Dp(42), 1));
+        customizeBottom.AddView(style, new LinearLayout.LayoutParams(0, Dp(42), 1));
+        customizeBottom.AddView(font, new LinearLayout.LayoutParams(0, Dp(42), 1));
+        customizeBottom.AddView(color, new LinearLayout.LayoutParams(0, Dp(42), 1));
+        customize.AddView(customizeTop);
+        customize.AddView(customizeBottom);
+        bottom.AddView(customize, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MatchParent, Dp(88)));
 
         var bottomParams = new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MatchParent, ViewGroup.LayoutParams.WrapContent, GravityFlags.Bottom);
         overlay.AddView(bottom, bottomParams);
@@ -456,6 +472,77 @@ public sealed class MainActivity : Activity
             Toast.MakeText(this, "Слой глубины сохранён. Используй PNG с прозрачным фоном.", ToastLength.Long)?.Show();
         }
         catch { Toast.MakeText(this, "Не удалось применить слой", ToastLength.Short)?.Show(); }
+    }
+
+    private void ApplyLockClockPreferences(TextView clock)
+    {
+        var prefs = GetSharedPreferences("tablet_os_settings", FileCreationMode.Private);
+        _lockClockStyle = prefs?.GetInt("lock_clock_style", _lockClockStyle) ?? _lockClockStyle;
+        _lockClockFont = prefs?.GetInt("lock_clock_font", _lockClockFont) ?? _lockClockFont;
+        _lockClockColor = prefs?.GetInt("lock_clock_color", _lockClockColor) ?? _lockClockColor;
+
+        var styles = new[]
+        {
+            (Size: 76f, Family: "sans-serif-light", Weight: TypefaceStyle.Normal, Spacing: -0.035f, Format: "HH:mm"),
+            (Size: 72f, Family: "sans-serif-rounded", Weight: TypefaceStyle.Normal, Spacing: -0.02f, Format: "HH:mm"),
+            (Size: 72f, Family: "serif", Weight: TypefaceStyle.Normal, Spacing: 0f, Format: "HH:mm"),
+            (Size: 70f, Family: "sans-serif", Weight: TypefaceStyle.Bold, Spacing: -0.025f, Format: "HH:mm"),
+            (Size: 62f, Family: "monospace", Weight: TypefaceStyle.Normal, Spacing: -0.04f, Format: "HH:mm")
+        };
+        var fonts = new[] { "sans-serif-light", "sans-serif", "sans-serif-rounded", "serif", "monospace" };
+        var colors = new[] { "#FFFFFFFF", "#FFF1D6", "#D9F0FF", "#D9FFE9", "#FFE0E8", "#E5DEFF", "#202A36", "#101820" };
+        var style = styles[Math.Clamp(_lockClockStyle, 0, styles.Length - 1)];
+        clock.TextSize = style.Size;
+        clock.Typeface = Typeface.Create(fonts[Math.Clamp(_lockClockFont, 0, fonts.Length - 1)], style.Weight);
+        clock.LetterSpacing = style.Spacing;
+        clock.Text = DateTime.Now.ToString(style.Format);
+        clock.SetTextColor(Color.ParseColor(colors[Math.Clamp(_lockClockColor, 0, colors.Length - 1)]));
+        clock.SetShadowLayer(12f, 0f, 2f, Color.Argb(110, 0, 0, 0));
+    }
+
+    private void ChooseLockClockStyle()
+    {
+        var options = new[] { "iOS тонкий", "Мягкий округлый", "Классический serif", "Жирный", "Цифровой" };
+        new AlertDialog.Builder(this)
+            .SetTitle("Стиль часов")
+            .SetItems(options, (_, e) =>
+            {
+                _lockClockStyle = e.Which;
+                GetSharedPreferences("tablet_os_settings", FileCreationMode.Private)?.Edit()?.PutInt("lock_clock_style", _lockClockStyle)?.Apply();
+                ApplyLockClockPreferences(_lockClock!);
+            })
+            .SetNegativeButton("Отмена", (_, _) => { })
+            .Show();
+    }
+
+    private void ChooseLockClockFont()
+    {
+        var options = new[] { "SF-подобный тонкий", "Системный", "Округлый", "С засечками", "Моноширинный" };
+        new AlertDialog.Builder(this)
+            .SetTitle("Шрифт часов")
+            .SetItems(options, (_, e) =>
+            {
+                _lockClockFont = e.Which;
+                GetSharedPreferences("tablet_os_settings", FileCreationMode.Private)?.Edit()?.PutInt("lock_clock_font", _lockClockFont)?.Apply();
+                ApplyLockClockPreferences(_lockClock!);
+            })
+            .SetNegativeButton("Отмена", (_, _) => { })
+            .Show();
+    }
+
+    private void ChooseLockClockColor()
+    {
+        var names = new[] { "Белый", "Тёплый кремовый", "Ледяной голубой", "Мятный", "Розовый", "Лавандовый", "Графитовый", "Почти чёрный" };
+        new AlertDialog.Builder(this)
+            .SetTitle("Цвет часов")
+            .SetItems(names, (_, e) =>
+            {
+                _lockClockColor = e.Which;
+                GetSharedPreferences("tablet_os_settings", FileCreationMode.Private)?.Edit()?.PutInt("lock_clock_color", _lockClockColor)?.Apply();
+                ApplyLockClockPreferences(_lockClock!);
+            })
+            .SetNegativeButton("Отмена", (_, _) => { })
+            .Show();
     }
 
     private void CycleLockClockPosition()
