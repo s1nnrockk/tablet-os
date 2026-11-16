@@ -17,6 +17,7 @@ public sealed class MainActivity : Activity
 {
     private const int HomeRoleRequestCode = 4101;
     private const int WallpaperRequestCode = 4102;
+    private const int AppBackgroundRequestCode = 4103;
     private const int AppColumns = 5;
 
     private RoleManager? _roleManager;
@@ -29,6 +30,8 @@ public sealed class MainActivity : Activity
     private Button _setLauncherButton = null!;
     private FrameLayout _root = null!;
     private FrameLayout _controlCenter = null!;
+    private FrameLayout _notificationCenter = null!;
+    private string? _pendingBackgroundPackage;
     private ImageView _wallpaperView = null!;
     private bool _returnAnimationPending;
     private float _returnPivotX;
@@ -84,12 +87,15 @@ public sealed class MainActivity : Activity
         var topSpacer = new Space(this);
         var wallpaperButton = MakePillButton("Обои", "#FFFFFF");
         wallpaperButton.Click += (_, _) => ChooseWallpaper();
-        var centerButton = MakePillButton("⌄  Центр", "#E7F0FA");
+        var notificationButton = MakePillButton("Уведомления", "#E7F0FA");
+        notificationButton.Click += (_, _) => OpenNotificationCenter();
+        var centerButton = MakePillButton("Быстрые настройки", "#E7F0FA");
         centerButton.Click += (_, _) => OpenControlCenter();
         var dateTop = MakeText("", 12, "#657487", false);
         topLine.AddView(brand, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WrapContent, Dp(34)));
         topLine.AddView(topSpacer, new LinearLayout.LayoutParams(0, 1, 1));
         topLine.AddView(wallpaperButton, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WrapContent, Dp(34)));
+        topLine.AddView(notificationButton, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WrapContent, Dp(34)));
         topLine.AddView(centerButton, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WrapContent, Dp(34)));
         topLine.AddView(dateTop, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WrapContent, Dp(34)));
         page.AddView(topLine);
@@ -188,6 +194,8 @@ public sealed class MainActivity : Activity
         _root.AddView(_dock, dockParams);
         _controlCenter = BuildControlCenter();
         _root.AddView(_controlCenter, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MatchParent, ViewGroup.LayoutParams.MatchParent));
+        _notificationCenter = BuildNotificationCenter();
+        _root.AddView(_notificationCenter, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MatchParent, ViewGroup.LayoutParams.MatchParent));
         SetContentView(_root);
         UpdateClock();
 
@@ -298,6 +306,119 @@ public sealed class MainActivity : Activity
         panelParams.SetMargins(Dp(8), Dp(8), Dp(8), 0);
         overlay.AddView(panel, panelParams);
         return overlay;
+    }
+
+    private FrameLayout BuildNotificationCenter()
+    {
+        var overlay = new FrameLayout(this) { Visibility = ViewStates.Gone, Clickable = true, Focusable = true };
+        var scrim = new View(this);
+        scrim.SetBackgroundColor(Color.ParseColor("#550B1726"));
+        scrim.Click += (_, _) => CloseNotificationCenter();
+        overlay.AddView(scrim, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MatchParent, ViewGroup.LayoutParams.MatchParent));
+
+        var panel = new LinearLayout(this) { Orientation = Orientation.Vertical };
+        panel.SetPadding(Dp(22), Dp(22), Dp(22), Dp(18));
+        panel.Background = RoundedGradient("#F7FBFFFF", "#E7EEF7", 30);
+        panel.Elevation = Dp(20);
+
+        var header = new LinearLayout(this) { Orientation = Orientation.Horizontal, Gravity = GravityFlags.CenterVertical };
+        var title = MakeText("Центр уведомлений", 23, "#20364D", true);
+        header.AddView(title, new LinearLayout.LayoutParams(0, Dp(46), 1));
+        var close = MakePillButton("Готово", "#FFFFFF");
+        close.Click += (_, _) => CloseNotificationCenter();
+        header.AddView(close, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WrapContent, Dp(36)));
+        panel.AddView(header);
+
+        var date = MakeText(DateTime.Now.ToString("dddd, d MMMM", CultureInfo.GetCultureInfo("ru-RU")), 13, "#718297", false);
+        date.SetPadding(0, 0, 0, Dp(12));
+        panel.AddView(date);
+
+        var list = new LinearLayout(this) { Orientation = Orientation.Vertical };
+        var notifications = NotificationCaptureService.GetRecent();
+        if (notifications.Count == 0)
+        {
+            var empty = MakeText("Здесь будут появляться уведомления приложений", 14, "#718297", false);
+            empty.SetPadding(0, Dp(18), 0, Dp(18));
+            list.AddView(empty);
+        }
+        else
+        {
+            foreach (var item in notifications.Take(20))
+            {
+                var card = new LinearLayout(this) { Orientation = Orientation.Vertical };
+                card.SetPadding(Dp(15), Dp(12), Dp(15), Dp(12));
+                card.Background = Rounded("#EFFFFFFF", 20);
+                var app = MakeText(item.App, 11, "#718297", true);
+                var heading = MakeText(item.Title, 15, "#20364D", true);
+                var body = MakeText(item.Text, 13, "#526579", false);
+                body.MaxLines = 4;
+                card.AddView(app);
+                card.AddView(heading);
+                card.AddView(body);
+                var lp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MatchParent, ViewGroup.LayoutParams.WrapContent);
+                lp.BottomMargin = Dp(9);
+                list.AddView(card, lp);
+            }
+        }
+        var scroll = new ScrollView(this) { FillViewport = true };
+        scroll.AddView(list);
+        panel.AddView(scroll, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MatchParent, 0, 1));
+
+        var hint = MakeText("Свайп вниз от верхнего края открывает эту панель", 11, "#8291A2", false);
+        hint.Gravity = GravityFlags.Center;
+        hint.SetPadding(0, Dp(10), 0, 0);
+        panel.AddView(hint);
+
+        var lpPanel = new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MatchParent, (int)(Resources!.DisplayMetrics!.HeightPixels * 0.9f), GravityFlags.Top);
+        lpPanel.SetMargins(Dp(8), Dp(8), Dp(8), 0);
+        overlay.AddView(panel, lpPanel);
+        return overlay;
+    }
+
+    private void OpenNotificationCenter()
+    {
+        if (_notificationCenter is null) return;
+        _root.RemoveView(_notificationCenter);
+        _notificationCenter = BuildNotificationCenter();
+        _root.AddView(_notificationCenter, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MatchParent, ViewGroup.LayoutParams.MatchParent));
+        _notificationCenter.Visibility = ViewStates.Visible;
+        _notificationCenter.Alpha = 0f;
+        _notificationCenter.TranslationY = -Dp(40);
+        _notificationCenter.Animate()?.Alpha(1f)?.TranslationY(0)?.SetDuration(260)?.Start();
+    }
+
+    private void CloseNotificationCenter()
+    {
+        if (_notificationCenter is null) return;
+        _notificationCenter.Animate()?.Alpha(0f)?.TranslationY(-Dp(30))?.SetDuration(180)
+            ?.WithEndAction(new Java.Lang.Runnable(() =>
+            {
+                if (_notificationCenter is not null) _notificationCenter.Visibility = ViewStates.Gone;
+            }))?.Start();
+    }
+
+    private float _gestureStartY = -1f;
+
+    public override bool DispatchTouchEvent(MotionEvent? ev)
+    {
+        if (ev is not null)
+        {
+            if (ev.Action == MotionEventActions.Down)
+                _gestureStartY = ev.RawY;
+            else if (ev.Action == MotionEventActions.Up && _gestureStartY >= 0)
+            {
+                var delta = ev.RawY - _gestureStartY;
+                if (_gestureStartY <= Dp(42) && delta >= Dp(90) &&
+                    _notificationCenter is not null && _notificationCenter.Visibility != ViewStates.Visible)
+                {
+                    OpenNotificationCenter();
+                }
+                _gestureStartY = -1f;
+            }
+            else if (ev.Action == MotionEventActions.Cancel)
+                _gestureStartY = -1f;
+        }
+        return base.DispatchTouchEvent(ev);
     }
 
     private void AddControlTile(LinearLayout row, string title, string subtitle, Action action)
@@ -446,36 +567,66 @@ public sealed class MainActivity : Activity
 
     private View CreateAppTile(AppEntry app)
     {
-        var tile = new LinearLayout(this)
-        {
-            Orientation = Orientation.Vertical,
-            Gravity = GravityFlags.Center,
-            Clickable = true,
-            Focusable = true
-        };
-        tile.SetPadding(Dp(3), Dp(7), Dp(3), Dp(5));
+        // Each app tile owns its own optional image background, saved by package name.
+        var tile = new FrameLayout(this) { Clickable = true, Focusable = true };
         tile.Background = Rounded("#66FFFFFF", 19);
+        tile.ClipToOutline = true;
 
-        var iconFrame = new FrameLayout(this)
+        var saved = GetSharedPreferences("tablet_os_settings", FileCreationMode.Private)
+            ?.GetString("app_background:" + app.PackageName, null);
+        if (!string.IsNullOrWhiteSpace(saved))
         {
-            ForegroundGravity = GravityFlags.Center
-        };
+            var background = new ImageView(this) { ScaleType = ImageView.ScaleType.CenterCrop };
+            try { background.SetImageURI(Android.Net.Uri.Parse(saved)); } catch { }
+            background.Alpha = 0.82f;
+            tile.AddView(background, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MatchParent, ViewGroup.LayoutParams.MatchParent));
+        }
+
+        var content = new LinearLayout(this) { Orientation = Orientation.Vertical, Gravity = GravityFlags.Center };
+        content.SetPadding(Dp(3), Dp(7), Dp(3), Dp(5));
+        var iconFrame = new FrameLayout(this) { ForegroundGravity = GravityFlags.Center };
         var icon = new ImageView(this);
         icon.SetImageDrawable(app.Icon);
         icon.SetScaleType(ImageView.ScaleType.FitCenter);
-        var iconParams = new FrameLayout.LayoutParams(Dp(52), Dp(52), GravityFlags.Center);
-        iconFrame.AddView(icon, iconParams);
+        iconFrame.AddView(icon, new FrameLayout.LayoutParams(Dp(52), Dp(52), GravityFlags.Center));
 
-        var label = MakeText(app.Label, 11, "#35485B", false);
+        var label = MakeText(app.Label, 11, "#26384A", true);
         label.Gravity = GravityFlags.Center;
         label.MaxLines = 2;
         label.Ellipsize = Android.Text.TextUtils.TruncateAt.End;
         label.SetPadding(Dp(2), Dp(4), Dp(2), 0);
 
-        tile.AddView(iconFrame, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MatchParent, Dp(59)));
-        tile.AddView(label, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MatchParent, Dp(34)));
+        content.AddView(iconFrame, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MatchParent, Dp(59)));
+        content.AddView(label, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MatchParent, Dp(34)));
+        tile.AddView(content, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MatchParent, ViewGroup.LayoutParams.MatchParent));
         tile.Click += (_, _) => LaunchApp(app, tile);
+        tile.LongClick += (_, _) => ChooseAppBackground(app);
         return tile;
+    }
+
+    private void ChooseAppBackground(AppEntry app)
+    {
+        _pendingBackgroundPackage = app.PackageName;
+        var picker = new Intent(Intent.ActionOpenDocument);
+        picker.SetType("image/*");
+        picker.AddCategory(Intent.CategoryOpenable);
+        StartActivityForResult(picker, AppBackgroundRequestCode);
+    }
+
+    private void ApplyAppBackground(string packageName, Android.Net.Uri uri)
+    {
+        try
+        {
+            ContentResolver?.TakePersistableUriPermission(uri, ActivityFlags.GrantReadUriPermission);
+            GetSharedPreferences("tablet_os_settings", FileCreationMode.Private)?.Edit()
+                ?.PutString("app_background:" + packageName, uri.ToString())?.Apply();
+            RenderApps(_search?.Text ?? string.Empty);
+            Toast.MakeText(this, "Фон приложения сохранён", ToastLength.Short)?.Show();
+        }
+        catch
+        {
+            Toast.MakeText(this, "Не удалось сохранить фон приложения", ToastLength.Short)?.Show();
+        }
     }
 
 
@@ -660,6 +811,8 @@ public sealed class MainActivity : Activity
             Toast.MakeText(this, "Tablet OS пока не выбран как главный экран", ToastLength.Short)?.Show();
         if (requestCode == WallpaperRequestCode && resultCode == Result.Ok && data?.Data is Android.Net.Uri selectedUri)
             ApplyWallpaper(selectedUri);
+        if (requestCode == AppBackgroundRequestCode && resultCode == Result.Ok && data?.Data is Android.Net.Uri appUri && !string.IsNullOrWhiteSpace(_pendingBackgroundPackage))
+            ApplyAppBackground(_pendingBackgroundPackage, appUri);
     }
 
     private TextView MakeText(string text, float size, string color, bool bold)
