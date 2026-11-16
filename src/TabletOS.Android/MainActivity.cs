@@ -259,48 +259,10 @@ public sealed class MainActivity : Activity
         };
         panel.AddView(volume, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MatchParent, Dp(42)));
 
-        var notificationsHeading = new LinearLayout(this) { Orientation = Orientation.Horizontal, Gravity = GravityFlags.CenterVertical };
-        var notificationsTitle = MakeText("Уведомления", 18, "#20364D", true);
-        notificationsHeading.AddView(notificationsTitle, new LinearLayout.LayoutParams(0, Dp(48), 1));
-        var permission = MakePillButton("Разрешить доступ", "#FFFFFF");
-        permission.Click += (_, _) =>
-        {
-            try { StartActivity(new Intent("android.settings.ACTION_NOTIFICATION_LISTENER_SETTINGS")); }
-            catch { Toast.MakeText(this, "Откройте доступ к уведомлениям в настройках Android", ToastLength.Long)?.Show(); }
-        };
-        notificationsHeading.AddView(permission, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WrapContent, Dp(34)));
-        panel.AddView(notificationsHeading);
+        var quickHint = MakeText("Уведомления доступны отдельным свайпом вниз", 12, "#718297", false);
+        quickHint.SetPadding(0, Dp(18), 0, Dp(8));
+        panel.AddView(quickHint);
 
-        var notificationList = new LinearLayout(this) { Orientation = Orientation.Vertical };
-        var notifications = NotificationCaptureService.GetRecent();
-        if (notifications.Count == 0)
-        {
-            var empty = MakeText("Пока нет новых уведомлений", 13, "#718297", false);
-            empty.SetPadding(0, Dp(8), 0, Dp(8));
-            notificationList.AddView(empty);
-        }
-        else
-        {
-            foreach (var item in notifications.Take(5))
-            {
-                var card = new LinearLayout(this) { Orientation = Orientation.Vertical };
-                card.SetPadding(Dp(14), Dp(10), Dp(14), Dp(10));
-                card.Background = Rounded("#DFFFFFFF", 18);
-                var appName = MakeText(item.App, 11, "#718297", true);
-                var messageTitle = MakeText(item.Title, 14, "#20364D", true);
-                var messageText = MakeText(item.Text, 12, "#526579", false);
-                messageText.MaxLines = 3;
-                card.AddView(appName);
-                card.AddView(messageTitle);
-                card.AddView(messageText);
-                var cardParams = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MatchParent, ViewGroup.LayoutParams.WrapContent);
-                cardParams.BottomMargin = Dp(8);
-                notificationList.AddView(card, cardParams);
-            }
-        }
-        var notificationScroll = new ScrollView(this) { FillViewport = false };
-        notificationScroll.AddView(notificationList);
-        panel.AddView(notificationScroll, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MatchParent, 0, 1));
 
         var panelParams = new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MatchParent, (int)(Resources!.DisplayMetrics!.HeightPixels * 0.88f), GravityFlags.Top);
         panelParams.SetMargins(Dp(8), Dp(8), Dp(8), 0);
@@ -404,7 +366,7 @@ public sealed class MainActivity : Activity
         if (ev is not null)
         {
             if (ev.Action == MotionEventActions.Down)
-                _gestureStartY = ev.RawY;
+                _gestureStartY = ev.Y;
             else if (ev.Action == MotionEventActions.Up && _gestureStartY >= 0)
             {
                 var delta = ev.RawY - _gestureStartY;
