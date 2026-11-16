@@ -275,19 +275,7 @@ public sealed class MainActivity : Activity
 
         tile.AddView(iconFrame, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MatchParent, Dp(59)));
         tile.AddView(label, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MatchParent, Dp(34)));
-        tile.Click += (_, _) =>
-        {
-            try
-            {
-                var launch = PackageManager?.GetLaunchIntentForPackage(app.PackageName);
-                if (launch is not null)
-                    StartActivity(launch);
-            }
-            catch (ActivityNotFoundException)
-            {
-                Toast.MakeText(this, "Не удалось открыть приложение", ToastLength.Short)?.Show();
-            }
-        };
+        tile.Click += (_, _) => LaunchApp(app, tile);
         return tile;
     }
 
@@ -329,19 +317,36 @@ public sealed class MainActivity : Activity
             image.SetImageDrawable(app.Icon);
             image.SetScaleType(ImageView.ScaleType.FitCenter);
             item.AddView(image, new FrameLayout.LayoutParams(Dp(43), Dp(43), GravityFlags.Center));
-            item.Click += (_, _) => LaunchApp(app);
+            item.Click += (_, _) => LaunchApp(app, item);
             var itemParams = new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MatchParent, 1);
             itemParams.SetMargins(Dp(3), 0, Dp(3), 0);
             _dock.AddView(item, itemParams);
         }
     }
 
-    private void LaunchApp(AppEntry app)
+    // Native Android scale-up transition: the launched app grows out of the
+    // exact icon/dock item the user tapped. No per-frame work runs on the CPU.
+    private void LaunchApp(AppEntry app, View source)
     {
         try
         {
             var launch = PackageManager?.GetLaunchIntentForPackage(app.PackageName);
-            if (launch is not null) StartActivity(launch);
+            if (launch is null) return;
+
+            if (source.Width > 0 && source.Height > 0)
+            {
+                var options = ActivityOptions.MakeScaleUpAnimation(
+                    source,
+                    0,
+                    0,
+                    source.Width,
+                    source.Height);
+                StartActivity(launch, options.ToBundle());
+            }
+            else
+            {
+                StartActivity(launch);
+            }
         }
         catch (ActivityNotFoundException)
         {
