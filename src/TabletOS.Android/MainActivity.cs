@@ -299,7 +299,7 @@ public sealed class MainActivity : Activity
         var savedWallpaper = GetSharedPreferences("tablet_os_settings", FileCreationMode.Private)?.GetString("lock_wallpaper_uri", null);
         if (!string.IsNullOrWhiteSpace(savedWallpaper))
         {
-            try { bg.SetImageURI(global::global::Android.Net.Uri.Parse(savedWallpaper)); } catch { }
+            try { bg.SetImageURI(global::Android.Net.Uri.Parse(savedWallpaper)); } catch { }
         }
         else
         {
@@ -342,7 +342,7 @@ public sealed class MainActivity : Activity
         var savedForeground = GetSharedPreferences("tablet_os_settings", FileCreationMode.Private)?.GetString("lock_foreground_uri", null);
         if (!string.IsNullOrWhiteSpace(savedForeground))
         {
-            try { foreground.SetImageURI(global::global::Android.Net.Uri.Parse(savedForeground)); } catch { }
+            try { foreground.SetImageURI(global::Android.Net.Uri.Parse(savedForeground)); } catch { }
         }
         // Put a transparent PNG cut-out here: it is layered above the clock to create
         // the iOS-style depth effect without pretending Android can segment any photo.
@@ -458,7 +458,7 @@ public sealed class MainActivity : Activity
         StartActivityForResult(picker, LockForegroundRequestCode);
     }
 
-    private void ApplyLockWallpaper(global::global::Android.Net.Uri uri)
+    private void ApplyLockWallpaper(global::Android.Net.Uri uri)
     {
         try
         {
@@ -470,7 +470,7 @@ public sealed class MainActivity : Activity
         catch { Toast.MakeText(this, "Не удалось применить обои", ToastLength.Short)?.Show(); }
     }
 
-    private void ApplyLockForeground(global::global::Android.Net.Uri uri)
+    private void ApplyLockForeground(global::Android.Net.Uri uri)
     {
         try
         {
@@ -873,11 +873,11 @@ public sealed class MainActivity : Activity
     {
         var saved = GetSharedPreferences("tablet_os_settings", FileCreationMode.Private)?.GetString("wallpaper_uri", null);
         if (string.IsNullOrWhiteSpace(saved) || _wallpaperView is null) return;
-        try { _wallpaperView.SetImageURI(global::global::Android.Net.Uri.Parse(saved)); }
+        try { _wallpaperView.SetImageURI(global::Android.Net.Uri.Parse(saved)); }
         catch { }
     }
 
-    private void ApplyWallpaper(global::global::Android.Net.Uri uri)
+    private void ApplyWallpaper(global::Android.Net.Uri uri)
     {
         try
         {
@@ -973,7 +973,7 @@ public sealed class MainActivity : Activity
         {
             var background = new ImageView(this);
             background.SetScaleType(ImageView.ScaleType.CenterCrop);
-            try { background.SetImageURI(global::global::Android.Net.Uri.Parse(saved)); } catch { }
+            try { background.SetImageURI(global::Android.Net.Uri.Parse(saved)); } catch { }
             background.Alpha = 0.82f;
             tile.AddView(background, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MatchParent, ViewGroup.LayoutParams.MatchParent));
         }
@@ -1010,7 +1010,7 @@ public sealed class MainActivity : Activity
         StartActivityForResult(picker, AppBackgroundRequestCode);
     }
 
-    private void ApplyAppBackground(string packageName, global::global::Android.Net.Uri uri)
+    private void ApplyAppBackground(string packageName, global::Android.Net.Uri uri)
     {
         try
         {
@@ -1207,13 +1207,13 @@ public sealed class MainActivity : Activity
         base.OnActivityResult(requestCode, resultCode, data);
         if (requestCode == HomeRoleRequestCode && !IsDefaultLauncher())
             Toast.MakeText(this, "Tablet OS пока не выбран как главный экран", ToastLength.Short)?.Show();
-        if (requestCode == WallpaperRequestCode && resultCode == Result.Ok && data?.Data is global::global::Android.Net.Uri selectedUri)
+        if (requestCode == WallpaperRequestCode && resultCode == Result.Ok && data?.Data is global::Android.Net.Uri selectedUri)
             ApplyWallpaper(selectedUri);
-        if (requestCode == AppBackgroundRequestCode && resultCode == Result.Ok && data?.Data is global::global::Android.Net.Uri appUri && !string.IsNullOrWhiteSpace(_pendingBackgroundPackage))
+        if (requestCode == AppBackgroundRequestCode && resultCode == Result.Ok && data?.Data is global::Android.Net.Uri appUri && !string.IsNullOrWhiteSpace(_pendingBackgroundPackage))
             ApplyAppBackground(_pendingBackgroundPackage, appUri);
-        if (requestCode == LockWallpaperRequestCode && resultCode == Result.Ok && data?.Data is global::global::Android.Net.Uri lockUri)
+        if (requestCode == LockWallpaperRequestCode && resultCode == Result.Ok && data?.Data is global::Android.Net.Uri lockUri)
             ApplyLockWallpaper(lockUri);
-        if (requestCode == LockForegroundRequestCode && resultCode == Result.Ok && data?.Data is global::global::Android.Net.Uri foregroundUri)
+        if (requestCode == LockForegroundRequestCode && resultCode == Result.Ok && data?.Data is global::Android.Net.Uri foregroundUri)
             ApplyLockForeground(foregroundUri);
     }
 
