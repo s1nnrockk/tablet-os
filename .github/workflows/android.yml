@@ -26,7 +26,10 @@ jobs:
         with:
           cmdline-tools-version: 13114758
           accept-android-sdk-licenses: true
-          packages: 'platform-tools platforms;android-35 build-tools;35.0.0'
+          packages: |
+            platform-tools
+            platforms;android-35
+            build-tools;35.0.0
       - name: Install Android NDK
         run: sdkmanager "ndk;27.2.12479018"
       - name: Setup Rust
