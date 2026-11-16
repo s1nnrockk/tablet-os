@@ -286,6 +286,13 @@ public sealed class MainActivity : Activity
         var header = new LinearLayout(this) { Orientation = Orientation.Horizontal, Gravity = GravityFlags.CenterVertical };
         var title = MakeText("Центр уведомлений", 23, "#20364D", true);
         header.AddView(title, new LinearLayout.LayoutParams(0, Dp(46), 1));
+        var access = MakePillButton("Доступ", "#FFFFFF");
+        access.Click += (_, _) =>
+        {
+            try { StartActivity(new Intent("android.settings.ACTION_NOTIFICATION_LISTENER_SETTINGS")); }
+            catch { Toast.MakeText(this, "Разрешите доступ к уведомлениям в настройках Android", ToastLength.Long)?.Show(); }
+        };
+        header.AddView(access, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WrapContent, Dp(36)));
         var close = MakePillButton("Готово", "#FFFFFF");
         close.Click += (_, _) => CloseNotificationCenter();
         header.AddView(close, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WrapContent, Dp(36)));
